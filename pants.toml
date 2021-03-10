@@ -1,0 +1,4 @@
+[GLOBAL]
+pants_version="2.3.0rc1"
+[source]
+root_patterns = ["pants-docker"]
