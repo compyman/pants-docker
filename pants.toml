@@ -1,7 +1,16 @@
 [GLOBAL]
-pants_version="2.3.0rc1"
+pants_version="2.4.0"
 pythonpath = ["%(buildroot)s/pants_plugins"]
-backend_packages = ["pants.backend.python", "pants.backend.python.lint.docformatter", "pants.backend.python.lint.black","pants.backend.python.lint.isort" ,"pants_docker"]
+backend_packages = [
+                 "pants.backend.python",
+                 "pants.backend.python.lint.docformatter",
+                 "pants.backend.python.lint.black",
+                 "pants.backend.python.lint.isort" ,
+                 "pants_docker",
+                 ]
 
 [source]
-root_patterns = ["pants_plugins", "test_docker"]
+root_patterns = [
+              "pants_plugins",
+              "test_docker",
+              ]

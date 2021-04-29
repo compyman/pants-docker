@@ -72,14 +72,13 @@ class Command(StringSequenceField):
 
 
 class Docker(Target):
-    help = "Describes a docker "
+    help = ""
     alias = "docker"
     core_fields = (
         *COMMON_TARGET_FIELDS,
         Dependencies,
         BaseImage,
         ImageSetup,
-        Sources,
         OutputPathField,
         WorkDir,
         ImageName,

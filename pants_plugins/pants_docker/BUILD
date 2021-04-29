@@ -1,1 +1,3 @@
-python_library()
+python_library(
+    dependencies=["pants-plugins:pants",],
+)

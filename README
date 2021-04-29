@@ -1,0 +1,25 @@
+Pants Docker
+Version 0.1
+
+This package contains an implementation of a plugin for the pants build system [0] to build docker images from out of pants build targets.
+
+Requirements
+
+This plugin supports the current stable version of pants (2.4)  and requires python 3.7 or python 3.8 to be installed, as well as transitively any other pants dependencies
+
+Installation
+
+See INSTALL for instructions for installation from source
+
+To install from pypi in an existing pants project add to your pants.toml file:
+
+[GLOBAL]
+plugins = [
+    "pants-docker"=="0.1"
+]
+
+
+See COPYING for the text of the Apache License which this package is released under 
+
+
+[0] https://www.pantsbuild.org/
