@@ -20,7 +20,7 @@ from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
 from pants.engine.target import (COMMON_TARGET_FIELDS, Dependencies,
                                  DependenciesRequest, HydratedSources,
-                                 HydrateSourcesRequest, StringField, Sources,
+                                 HydrateSourcesRequest, Sources, StringField,
                                  StringSequenceField, Tags, Target, Targets,
                                  TransitiveTargets, TransitiveTargetsRequest)
 from pants.engine.unions import UnionRule
@@ -34,10 +34,12 @@ class BaseImage(StringField):
     required = True
     help = ""
 
+
 class ImageSetup(StringSequenceField):
-    alias="image_setup_commands"
-    required=False
+    alias = "image_setup_commands"
+    required = False
     default = []
+
 
 class WorkDir(StringField):
     alias = "workdir"
@@ -114,7 +116,7 @@ async def get_requirement_dependency_command(
 ) -> BuildCommand:
     return BuildCommand(
         command_lines=tuple(
-            "RUN pip install \"{}\"\n".format(req) for req in library.value
+            'RUN pip install "{}"\n'.format(req) for req in library.value
         )
     )
 
@@ -126,7 +128,7 @@ async def package_into_image(field_set: PackageFieldSet) -> BuiltPackage:
     all_deps = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
     )
-    
+
     for i, tgt in enumerate(all_deps.closure):
         if tgt.has_field(Sources):
             if tgt[Sources].address.spec_path:
@@ -137,7 +139,7 @@ async def package_into_image(field_set: PackageFieldSet) -> BuiltPackage:
         Get(StrippedSourceFiles, SourceFilesRequest(rooted_source_files)),
         Get(SourceFiles, SourceFilesRequest(unrooted_files)),
     )
-    
+
     merged = await Get(
         Digest,
         AddPrefix(
@@ -154,8 +156,9 @@ async def package_into_image(field_set: PackageFieldSet) -> BuiltPackage:
     if field_set.workdir:
         dockerfile.write("WORKDIR {}\n".format(field_set.workdir.value))
     if field_set.image_setup.value:
-        dockerfile.writelines(["RUN {}\n".format(line)
-                               for line in field_set.image_setup.value])
+        dockerfile.writelines(
+            ["RUN {}\n".format(line) for line in field_set.image_setup.value]
+        )
 
     pip_requirements = [
         Get(BuildCommand, PythonRequirementsField, dep[PythonRequirementsField])
@@ -169,19 +172,19 @@ async def package_into_image(field_set: PackageFieldSet) -> BuiltPackage:
     dockerfile.write("COPY application .\n")
     if field_set.command.value:
         cmd_string = "CMD [{}]\n".format(
-            ",".join(f"\"{cmd}\"" for cmd in field_set.command.value)
+            ",".join(f'"{cmd}"' for cmd in field_set.command.value)
         )
         dockerfile.write(cmd_string)
 
     logger.info("DockerFile: \n%s", dockerfile.getvalue())
-    
+
     dockerfile = await Get(
         Digest,
         CreateDigest(
             [FileContent("Dockerfile", dockerfile.getvalue().encode("utf-8"))]
         ),
     )
-    
+
     docker_context = await Get(Digest, MergeDigests([dockerfile, merged]))
     docker_context_snapshot = await Get(Snapshot, Digest, docker_context)
     logger.info("Docker Context: \n%s", "\n".join(docker_context_snapshot.files))
@@ -212,7 +215,7 @@ def _build_tags(field_set: PackageFieldSet) -> List[str]:
     tags = [f"{field_set.image_name.value}:{tag}" for tag in field_set.tags.value]
     tags.append(field_set.image_name.value)
     if not field_set.registry.value:
-        return tags    
+        return tags
     registry = field_set.registry.value
     return [f"{registry}/{tag}" for tag in tags]
 
@@ -220,7 +223,10 @@ def _build_tags(field_set: PackageFieldSet) -> List[str]:
 def _tag_argument_list(field_set: PackageFieldSet) -> List[str]:
     """Turns a list of docker registry/name:tags strings the a list with one
     "-t" before each "registry/name:tag i.e. ["test-container:version-1"] ->
-    ["-t", "test-container:version"] which can be used as process arguments."""
+
+    ["-t", "test-container:version"] which can be used as process
+    arguments.
+    """
     tags = _build_tags(field_set)
     tags = itertools.chain(*(("-t", tag) for tag in tags))
     return tags
