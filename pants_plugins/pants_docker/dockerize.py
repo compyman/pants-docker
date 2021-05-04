@@ -90,14 +90,13 @@ class Docker(Target):
 
 
 @dataclass(frozen=True)
-class PackageFieldSet(pants.core.goals.package.PackageFieldSet):
+class DockerPackageFieldSet(pants.core.goals.package.PackageFieldSet):
     alias = "docker_field_set"
-    required_fields = (BaseImage, ImageName, Sources)
+    required_fields = (BaseImage, ImageName)
 
     base_image: BaseImage
     image_name: ImageName
     image_setup: ImageSetup
-    sources: Sources
     registry: Registry
     tags: Tags
     dependencies: Dependencies
@@ -105,113 +104,120 @@ class PackageFieldSet(pants.core.goals.package.PackageFieldSet):
     command: Command
 
 
+
+
+@dataclass(frozen=True)
+class DockerComponent:
+    file_commands: Tuple[str]
+    digest: object
+
+
 @dataclass(frozen=True)
 class BuildCommand:
     command_lines: Tuple[str]
 
 
+# @rule(level=LogLevel.DEBUG)
+# async def get_requirement_docker_command(
+#     library: PythonRequirementsField,
+# ) -> DockerComponent:
+#     return BuildCommand(
+#         command_lines=tuple(
+#             'RUN pip install "{}"\n'.format(req) for req in library.value
+#         )
+#     )
+
+
+async def  depth_first_deps(f):
+    logger.info(f.dependencies.value)
+    deps = await Get(Addresses, DependenciesRequest(f.dependencies))
+    for d in deps:
+        logger.info(d)
+        depth_first_deps(d)
+        logger.info(d)
+
 @rule(level=LogLevel.DEBUG)
-async def get_requirement_dependency_command(
-    library: PythonRequirementsField,
-) -> BuildCommand:
-    return BuildCommand(
-        command_lines=tuple(
-            'RUN pip install "{}"\n'.format(req) for req in library.value
-        )
-    )
+async def package_into_image(targets: Targets, field_set: DockerPackageFieldSet) -> BuiltPackage:
+    direct_deps = await Get(Targets, DependenciesRequest(field_set.dependencies))
+    addresses = [d.address for d in direct_deps]
+    logger.info(addresses)
+    all_deps = await Get(TransitiveTargets, TransitiveTargetsRequest(addresses))
+    for t in all_deps.closure:
+        logger.info(t)
+    await MultiGet(Get(DockerComponents, (), ) )
+    sources = [t[Sources] for t in all_deps.closure if t.has_field(Sources)]
+    # merged = await Get(
+    #     Digest,
+    #     AddPrefix(
+    #         await Get(
+    #             Digest,
+    #             MergeDigests([stripped.snapshot.digest, unstripped.snapshot.digest]),
+    #         ),
+    #         "application",
+    #     ),
+    # )
+    # snapshot = await Get(Snapshot, Digest, merged)
+    # dockerfile = StringIO()
+    # dockerfile.write("FROM {}\n".format(field_set.base_image.value))
+    # if field_set.workdir:
+    #     dockerfile.write("WORKDIR {}\n".format(field_set.workdir.value))
+    # if field_set.image_setup.value:
+    #     dockerfile.writelines(
+    #         ["RUN {}\n".format(line) for line in field_set.image_setup.value]
+    #     )
 
+    # pip_requirements = [
+    #     Get(BuildCommand, PythonRequirementsField, dep[PythonRequirementsField])
+    #     for dep in all_deps.closure
+    #     if dep.has_field(PythonRequirementsField)
+    # ]
 
-@rule(level=LogLevel.DEBUG)
-async def package_into_image(field_set: PackageFieldSet) -> BuiltPackage:
-    rooted_source_files = []
-    unrooted_files = []
-    all_deps = await Get(
-        TransitiveTargets, TransitiveTargetsRequest([field_set.address])
-    )
+    # all_pip_commands = await MultiGet(pip_requirements)
+    # for file_command in all_pip_commands:
+    #     dockerfile.writelines(file_command.command_lines)
+    # dockerfile.write("COPY application .\n")
+    # if field_set.command.value:
+    #     cmd_string = "CMD [{}]\n".format(
+    #         ",".join(f'"{cmd}"' for cmd in field_set.command.value)
+    #     )
+    #     dockerfile.write(cmd_string)
 
-    for i, tgt in enumerate(all_deps.closure):
-        if tgt.has_field(Sources):
-            if tgt[Sources].address.spec_path:
-                rooted_source_files.append(tgt[Sources])
-            else:
-                unrooted = unrooted_files.append(tgt[Sources])
-    stripped, unstripped = await MultiGet(
-        Get(StrippedSourceFiles, SourceFilesRequest(rooted_source_files)),
-        Get(SourceFiles, SourceFilesRequest(unrooted_files)),
-    )
+    # logger.info("DockerFile: \n%s", dockerfile.getvalue())
 
-    merged = await Get(
-        Digest,
-        AddPrefix(
-            await Get(
-                Digest,
-                MergeDigests([stripped.snapshot.digest, unstripped.snapshot.digest]),
-            ),
-            "application",
-        ),
-    )
-    snapshot = await Get(Snapshot, Digest, merged)
-    dockerfile = StringIO()
-    dockerfile.write("FROM {}\n".format(field_set.base_image.value))
-    if field_set.workdir:
-        dockerfile.write("WORKDIR {}\n".format(field_set.workdir.value))
-    if field_set.image_setup.value:
-        dockerfile.writelines(
-            ["RUN {}\n".format(line) for line in field_set.image_setup.value]
-        )
+    # dockerfile = await Get(
+    #     Digest,
+    #     CreateDigest(
+    #         [FileContent("Dockerfile", dockerfile.getvalue().encode("utf-8"))]
+    #     ),
+    # )
 
-    pip_requirements = [
-        Get(BuildCommand, PythonRequirementsField, dep[PythonRequirementsField])
-        for dep in all_deps.closure
-        if dep.has_field(PythonRequirementsField)
-    ]
+    # docker_context = await Get(Digest, MergeDigests([dockerfile, merged]))
+    # docker_context_snapshot = await Get(Snapshot, Digest, docker_context)
+    # logger.info("Docker Context: \n%s", "\n".join(docker_context_snapshot.files))
+    # search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
+    # process_path = await Get(
+    #     BinaryPaths,
+    #     BinaryPathRequest(
+    #         binary_name="docker",
+    #         search_path=search_paths,
+    #     ),
+    # )
+    # if not process_path.first_path:
+    #     raise ValueError("Unable to locate Docker binary on paths: %s", search_paths)
+    # tag_arguments = _tag_argument_list(field_set)
 
-    all_pip_commands = await MultiGet(pip_requirements)
-    for file_command in all_pip_commands:
-        dockerfile.writelines(file_command.command_lines)
-    dockerfile.write("COPY application .\n")
-    if field_set.command.value:
-        cmd_string = "CMD [{}]\n".format(
-            ",".join(f'"{cmd}"' for cmd in field_set.command.value)
-        )
-        dockerfile.write(cmd_string)
-
-    logger.info("DockerFile: \n%s", dockerfile.getvalue())
-
-    dockerfile = await Get(
-        Digest,
-        CreateDigest(
-            [FileContent("Dockerfile", dockerfile.getvalue().encode("utf-8"))]
-        ),
-    )
-
-    docker_context = await Get(Digest, MergeDigests([dockerfile, merged]))
-    docker_context_snapshot = await Get(Snapshot, Digest, docker_context)
-    logger.info("Docker Context: \n%s", "\n".join(docker_context_snapshot.files))
-    search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
-    process_path = await Get(
-        BinaryPaths,
-        BinaryPathRequest(
-            binary_name="docker",
-            search_path=search_paths,
-        ),
-    )
-    if not process_path.first_path:
-        raise ValueError("Unable to locate Docker binary on paths: %s", search_paths)
-    tag_arguments = _tag_argument_list(field_set)
-
-    process_result = await Get(
-        ProcessResult,
-        Process(
-            argv=[process_path.first_path.path, "build", *tag_arguments, "."],
-            input_digest=docker_context,
-            description=f"Creating Docker Image from {field_set.image_name.value} and dependencies",
-        ),
-    )
+    # process_result = await Get(
+    #     ProcessResult,
+    #     Process(
+    #         argv=[process_path.first_path.path, "build", *tag_arguments, "."],
+    #         input_digest=docker_context,
+    #         description=f"Creating Docker Image from {field_set.image_name.value} and dependencies",
+    #     ),
+    # )
     return BuiltPackage(digest=docker_context, artifacts=())
 
 
-def _build_tags(field_set: PackageFieldSet) -> List[str]:
+def _build_tags(field_set: DockerPackageFieldSet) -> List[str]:
     tags = [f"{field_set.image_name.value}:{tag}" for tag in field_set.tags.value]
     tags.append(field_set.image_name.value)
     if not field_set.registry.value:
@@ -220,7 +226,7 @@ def _build_tags(field_set: PackageFieldSet) -> List[str]:
     return [f"{registry}/{tag}" for tag in tags]
 
 
-def _tag_argument_list(field_set: PackageFieldSet) -> List[str]:
+def _tag_argument_list(field_set: DockerPackageFieldSet) -> List[str]:
     """Turns a list of docker registry/name:tags strings the a list with one
     "-t" before each "registry/name:tag i.e. ["test-container:version-1"] ->
 
@@ -235,5 +241,5 @@ def _tag_argument_list(field_set: PackageFieldSet) -> List[str]:
 def rules():
     return [
         *collect_rules(),
-        UnionRule(pants.core.goals.package.PackageFieldSet, PackageFieldSet),
+        UnionRule(pants.core.goals.package.PackageFieldSet, DockerPackageFieldSet),
     ]

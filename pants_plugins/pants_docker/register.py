@@ -1,5 +1,4 @@
 import pants_docker.dockerize as dockerize
-from pants_docker.dockerize import Docker
 
 
 def rules():
@@ -7,4 +6,4 @@ def rules():
 
 
 def target_types():
-    return [Docker]
+    return [dockerize.Docker]
