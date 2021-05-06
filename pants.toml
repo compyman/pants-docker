@@ -1,12 +1,12 @@
 [GLOBAL]
-pants_version="2.4.0"
+pants_version="2.5.0.dev3"
 pythonpath = ["%(buildroot)s/pants_plugins"]
 backend_packages = [
                  "pants.backend.python",
                  "pants.backend.python.lint.docformatter",
                  "pants.backend.python.lint.black",
                  "pants.backend.python.lint.isort" ,
-                 "pants_docker",
+                 "sendwave.pants_docker",
                  ]
 
 [source]
