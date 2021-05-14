@@ -5,8 +5,11 @@ from io import StringIO
 from typing import List, Tuple
 
 import pants.core.goals.package
-from pants.backend.python.target_types import (PythonRequirementLibrary,
+from pants.python.python_setup import PythonSetup
+from pants.backend.python.target_types import (PythonRequirementsFileSources,
+                                               PythonRequirementLibrary,
                                                PythonRequirementsField,
+                                               PythonRequirementsFile,
                                                PythonSources)
 from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
                                       OutputPathField)
@@ -14,7 +17,7 @@ from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.addresses import Addresses
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
-                             MergeDigests, Snapshot)
+                             MergeDigests, Snapshot, PathGlobs)
 from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
                                   ProcessResult)
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
@@ -31,40 +34,28 @@ from .fields import Docker, DockerPackageFieldSet
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class DockerComponent:
-    file_commands: Tuple[str]
-    digest: object
-
-
-@dataclass(frozen=True)
-class BuildCommand:
-    command_lines: Tuple[str]
-
-
-@rule(level=LogLevel.DEBUG)
-async def get_requirement_docker_command(
-    library: PythonRequirementsField,
-) -> BuildCommand:
-    return BuildCommand(
-        command_lines=tuple(
-            'RUN pip install "{}"\n'.format(req) for req in library.value
-        )
-    )
-
-
 @rule(level=LogLevel.DEBUG)
 async def package_into_image(
+        python_setup_system: PythonSetup,
     targets: Targets, field_set: DockerPackageFieldSet
 ) -> BuiltPackage:
     direct_deps = await Get(Targets, DependenciesRequest(field_set.dependencies))
     all_deps = await Get(
         TransitiveTargets, TransitiveTargetsRequest([d.address for d in direct_deps])
     )
+    constraints_file = python_setup_system.requirement_constraints
+    if constraints_file is not None:
+        constraints_get = Get(
+            Digest, PathGlobs([constraints_file])
+        )
+    else:
+        constraints_file = "dummy.txt"
+        constraints_get = Get(Digest, CreateDigest([FileContent(constraints_file, b"")]))
     sources = [t[Sources] for t in all_deps.closure if t.has_field(Sources)]
     stripped_snapshot = await Get(StrippedSourceFiles, SourceFilesRequest(sources))
     digest = stripped_snapshot.snapshot.digest
-    snapshot = await Get(Snapshot, AddPrefix(digest, "application"))
+    snapshot, constraints_digest = await MultiGet(Get(Snapshot, AddPrefix(digest, "application")),
+                                                  constraints_get)
 
     dockerfile = StringIO()
     dockerfile.write("FROM {}\n".format(field_set.base_image.value))
@@ -74,14 +65,14 @@ async def package_into_image(
         dockerfile.writelines(
             ["RUN {}\n".format(line) for line in field_set.image_setup.value]
         )
-    pip_requirements = [
-        Get(BuildCommand, PythonRequirementsField, dep[PythonRequirementsField])
-        for dep in all_deps.closure
-        if dep.has_field(PythonRequirementsField)
-    ]
-    all_pip_commands = await MultiGet(pip_requirements)
-    for file_command in all_pip_commands:
-        dockerfile.writelines(file_command.command_lines)
+    dockerfile.write("COPY {} .\n".format(constraints_file))
+    for dep in all_deps.closure:
+        if not dep.has_field(PythonRequirementsField):
+            continue
+        for lib in dep[PythonRequirementsField].value:
+            dockerfile.write("RUN pip install {} -c {}\n".format(lib, constraints_file))
+    dockerfile.write("RUN rm {}\n".format(constraints_file))
+    
     dockerfile.write("COPY application .\n")
     if field_set.command.value:
         cmd_string = "CMD [{}]\n".format(
@@ -98,7 +89,7 @@ async def package_into_image(
         ),
     )
 
-    docker_context = await Get(Digest, MergeDigests([dockerfile, snapshot.digest]))
+    docker_context = await Get(Digest, MergeDigests([dockerfile, snapshot.digest, constraints_digest]))
     docker_context_snapshot = await Get(Snapshot, Digest, docker_context)
     logger.info("Docker Context: \n%s", "\n".join(docker_context_snapshot.files))
     search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
@@ -125,7 +116,7 @@ async def package_into_image(
     process_result = await Get(
         ProcessResult,
         Process(
-            argv=[process_path.first_path.path, "save", "-o", artifact],
+            argv=[process_path.first_path.path, "save", "-o", artifact, field_set.image_name.value],
             output_files=[artifact],
             description="Saving Docker Image into tar",
         ),

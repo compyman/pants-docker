@@ -11,6 +11,9 @@ backend_packages = [
 
 [source]
 root_patterns = [
-              "pants_plugins",
-              "test_docker",
+              "/pants_plugins",
+              "/"
               ]
+
+[python-setup]
+requirement_constraints="constraints.txt"

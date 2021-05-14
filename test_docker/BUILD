@@ -10,3 +10,7 @@ docker(
         workdir='root',
         dependencies=["test_docker", "//:gunicorn", "//:gevent",],
 )
+
+python_tests(
+    name="tests",
+)
