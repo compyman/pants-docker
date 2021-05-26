@@ -1,9 +1,16 @@
-import sendwave.pants_docker.dockerize
+import sendwave.pants_docker.package as package
+import sendwave.pants_docker.sources as sources
+import sendwave.pants_docker.python_requirement as python_requirement
+import sendwave.pants_docker.python_constraints as python_constraints
+import sendwave.pants_docker.target as target
 
 
 def rules():
-    return sendwave.pants_docker.dockerize.rules()
-
+    return [*package.rules(),
+            *sources.rules(),
+            *python_requirement.rules(),
+            *python_constraints.rules(),
+            *target.rules()]
 
 def target_types():
-    return [sendwave.pants_docker.dockerize.Docker]
+    return [target.Docker]

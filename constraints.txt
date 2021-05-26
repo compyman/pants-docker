@@ -6,8 +6,6 @@ chardet==4.0.0
 click==7.1.2
 fasteners==0.16
 Flask==1.1.2
-gevent==21.1.2
-greenlet==1.0.0
 gunicorn==20.0.4
 humbug==0.1.9
 idna==2.10

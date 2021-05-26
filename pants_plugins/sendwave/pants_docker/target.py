@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pants.core.goals.package
 from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
                                       OutputPathField)
+from pants.engine.unions import UnionRule
 from pants.engine.target import (COMMON_TARGET_FIELDS, Dependencies,
                                  DependenciesRequest, DescriptionField,
                                  HydratedSources, HydrateSourcesRequest,
@@ -11,54 +12,67 @@ from pants.engine.target import (COMMON_TARGET_FIELDS, Dependencies,
                                  TransitiveTargetsRequest)
 
 
-class DockerField:
-    def process(self, set: pants.core.goals.package.PackageFieldSet) -> None:
-        pass
 
-
-class BaseImage(StringField, DockerField):
+class BaseImage(StringField):
     alias = "base_image"
     required = True
     help = "This is used to set the Base Image for all future pants build steps (e.g. python:3.8.8-slim-buster)"
 
 
-class ImageSetup(StringSequenceField, DockerField):
+class DockerIgnore(StringSequenceField):
+    alias = "docker_ignore"
+    required = False
+    default = []
+    help = "A list of directories to exclude from the docker build context, each entry should be a valid line in a .dockerignore file"
+
+class ImageSetup(StringSequenceField):
     alias = "image_setup_commands"
     required = False
     default = []
     help = 'Commands to run in the image during the build process. Each will be evaluated as it\'s own process in the container and will create a new layer in the resulting image (e.g. ["apt-get update && apt-get upgrade --yes", "apt-get -y install gcc libpq-dev"],)'
 
 
-class WorkDir(StringField, DockerField):
+class WorkDir(StringField):
     alias = "workdir"
     required = False
     default = "container"
     help = "The directory inside the container into which"
 
 
-class ImageName(StringField, DockerField):
-    alias = "image_name"
-    required = True
-    help = "The name of the resulting docker image"
-
-
-class Registry(StringField, DockerField):
+class Registry(StringField):
     alias = "registry"
     required = False
     help = "The registry of the resulting docker image"
 
 
-class Tags(StringSequenceField, DockerField):
+class Tags(StringSequenceField):
     alias = "tags"
     default = []
     required = False
     help = 'A list of tags to apply to the resulting docker image (e.g. ["1.0.0", "main"]) '
 
 
-class Command(StringSequenceField, DockerField):
+class Command(StringSequenceField):
     alias = "command"
     required = False
     help = "Command used to run the Docker container"
+
+
+
+@dataclass(frozen=True)
+class DockerPackageFieldSet(pants.core.goals.package.PackageFieldSet):
+    alias = "docker_field_set"
+    required_fields = (BaseImage,)
+
+    base_image: BaseImage
+    image_setup: ImageSetup
+    ignore: DockerIgnore
+    registry: Registry
+    tags: Tags
+    dependencies: Dependencies
+    workdir: WorkDir
+    command: Command
+    output_path: OutputPathField
 
 
 class Docker(Target):
@@ -71,22 +85,10 @@ class Docker(Target):
         ImageSetup,
         OutputPathField,
         WorkDir,
-        ImageName,
         Tags,
         Command,
     )
 
 
-@dataclass(frozen=True)
-class DockerPackageFieldSet(pants.core.goals.package.PackageFieldSet):
-    alias = "docker_field_set"
-    required_fields = (BaseImage, ImageName)
-
-    base_image: BaseImage
-    image_name: ImageName
-    image_setup: ImageSetup
-    registry: Registry
-    tags: Tags
-    dependencies: Dependencies
-    workdir: WorkDir
-    command: Command
+def rules():
+    return [UnionRule(pants.core.goals.package.PackageFieldSet, DockerPackageFieldSet)]

@@ -1,16 +1,22 @@
-python_library()
+resources(name="templates",
+          sources=["templates/*"])
+files(name="static",
+          sources=["static/*"])
 
-docker(
-        name="dockerize",
-        image_setup_commands = ["apt-get update && apt-get upgrade --yes", "apt-get -y install gcc libpq-dev"],
-        base_image="python:3.8.8-slim-buster",
-        image_name="test-docker-application",
-        tags=["version1", "version2"],
-        command=['python', 'app.py'],
-        workdir='root',
-        dependencies=["test_docker", "//:gunicorn", "//:gevent",],
+python_library(
+    name="test_docker",
+    dependencies=["test_docker:templates",
+                  "test_docker:static",]
 )
 
-python_tests(
-    name="tests",
+docker(
+        name="dockerized_flask_app",
+        image_setup_commands = ["apt-get update && apt-get upgrade --yes",
+                                "apt-get -y install gcc libpq-dev",
+                                "python -m pip install --upgrade pip"],
+        base_image="python:3.8.8-slim-buster",
+        tags=["version1", "version2"],
+        command=["/venv/bin/gunicorn"],
+        workdir="root",
+        dependencies=["test_docker", "//:gunicorn", "//:gevent",],
 )

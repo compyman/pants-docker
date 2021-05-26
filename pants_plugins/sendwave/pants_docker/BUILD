@@ -8,7 +8,7 @@ python_distribution(
     dependencies=[":pants-docker",],
     provides=setup_py(
         name="compyman-pants-docker",
-        version="0.1.alpha",
+        version="0.2.alpha",
         description="Pants Plugin to automatically generate docker images from pants targets",
         author="compyman@compyman.net",
     ),
