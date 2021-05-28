@@ -1,11 +1,12 @@
 python_library(
-    name="pants-docker",
+    name="pants_docker_library",
     dependencies=["pants_plugins:pants",],
 )
 
 
 python_distribution(
-    dependencies=[":pants-docker",],
+    name="pants_docker",
+    dependencies=[":pants_docker_library",],
     provides=setup_py(
         name="sendwave-pants-docker",
         version="beta",

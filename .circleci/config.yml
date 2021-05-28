@@ -13,17 +13,24 @@ jobs:
     docker:
       - image: cimg/python:3.9.5
     steps:
-      - checkout      
+      - restore_cache:
+          keys:
+            - v1-pants_cache-{{ arch }}--{{ .Branch }}
+            - v1-pants_cache-{{ arch }}
+      - checkout
       - setup_remote_docker:
           version: 20.10.2
+      - run:
+          name: setup distutils
+          command: sudo apt-get update && sudo apt-get install python3-distutils
       - run:
           name: setup_pants
           command: ./pants --version
       - run:
           name: Build package
-          command: ./pants package pants_plugins/sendwave/pants_docker:pants-docker
+          command: ./pants package pants_plugins/sendwave/pants_docker:pants_docker
       - save_cache:
-          key: pants_cache-{{ arch }}
+          key: v1-pants_cache-{{ arch }}--{{ .Branch }}
           paths:
             - $HOME/.cache/pants/setup
             - $HOME/.cache/pants/named_caches
