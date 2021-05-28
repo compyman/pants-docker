@@ -2,13 +2,13 @@ import itertools
 import logging
 from dataclasses import dataclass
 from io import StringIO
-from typing import List, Tuple, Coroutine, Any, Optional
+from typing import List, Tuple, Coroutine, Any, Optional, Iterable
 
 from pants.python.python_setup import PythonSetup
 from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
                                       OutputPathField)
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
-                             MergeDigests, Snapshot, PathGlobs, )
+                             MergeDigests, Snapshot, PathGlobs)
 from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
                                   ProcessResult)
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
@@ -22,11 +22,10 @@ from pants.util.logging import LogLevel
 
 from sendwave.pants_docker.target import Docker, DockerPackageFieldSet
 from sendwave.pants_docker.docker_component import DockerComponent, DockerComponentRequest
-from sendwave.pants_docker.python_constraints import ConstraintsRequest, ConstraintsDigest
 
 logger = logging.getLogger(__name__)
 
-def build_tags(target_name: str, field_set: DockerPackageFieldSet) -> List[str]:
+def _build_tags(target_name: str, field_set: DockerPackageFieldSet) -> List[str]:
     tags = [f"{target_name}:{tag}" for tag in field_set.tags.value]
     tags.append(target_name)
     if not field_set.registry.value:
@@ -35,7 +34,7 @@ def build_tags(target_name: str, field_set: DockerPackageFieldSet) -> List[str]:
     return [f"{registry}/{tag}" for tag in tags]
 
 
-def build_tag_argument_list(target_name: str,
+def _build_tag_argument_list(target_name: str,
                             field_set: DockerPackageFieldSet) -> List[str]:
     """Turns a list of docker registry/name:tags strings the a list with one
     "-t" before each "registry/name:tag i.e. ["test-container:version-1"] ->
@@ -43,10 +42,34 @@ def build_tag_argument_list(target_name: str,
     ["-t", "test-container:version"] which can be used as process
     arguments.
     """
-    tags = build_tags(target_name, field_set)
+    tags = _build_tags(target_name, field_set)
     tags = itertools.chain(*(("-t", tag) for tag in tags))
     return tags
 
+
+def _create_dockerfile(base_image: str,
+                       workdir: Optional[str],
+                       setup: Iterable[str],
+                       commands: Iterable[str],
+                       init_command: Iterable[str]) -> StringIO:
+    dockerfile = StringIO()
+    dockerfile.write("FROM {}\n".format(base_image))
+    if workdir:
+        dockerfile.write("WORKDIR {}\n".format(workdir))
+    if setup:
+        dockerfile.writelines(
+            ["RUN {}\n".format(line) for line in setup]
+        )
+    dockerfile.writelines(commands)
+    dockerfile.write("COPY application .\n")
+    if init_command:
+        cmd = "CMD [{}]\n".format(
+            ",".join('"{}"'.format(c) for c in init_command)
+        )
+        dockerfile.write(cmd)
+
+    logger.info("DockerFile: \n%s", dockerfile.getvalue())
+    return dockerfile
 
 @rule(level=LogLevel.DEBUG)
 async def package_into_image(
@@ -62,49 +85,37 @@ async def package_into_image(
                                      DockerComponentRequest,
                                      req)
                                  for req in dockerization_requests])
-    source_snapshots = []
+    for dep in all_deps.closure:
+        logger.info("<%s %s>", type(dep), dep.address)
+    source_digests = []
     run_commands = []
+    components = list(components)
+    components.reverse() # go bottom of tree up instead of top of tree down
     for component in components:
         if component.sources:
-            source_snapshots.append(component.sources.digest)
+            source_digests.append(component.sources)
         run_commands.extend(component.commands)
-
-    digest, constraints = await MultiGet(
-        Get(Digest, AddPrefix(await Get(Digest, MergeDigests(digests=source_snapshots)), "application")),
-        Get(ConstraintsDigest,
-            ConstraintsRequest(python_setup_system.requirement_constraints)),
+    source_digest = await Get(Digest, MergeDigests(digests=source_digests))
+    application_digest = await Get(Digest, AddPrefix(source_digest, "application"))
+    snapshot = await Get(Snapshot, Digest, application_digest)
+    logger.info(snapshot.files)
+    dockerfile_contents = _create_dockerfile(
+        field_set.base_image.value,
+        field_set.workdir and field_set.workdir.value,
+        field_set.image_setup.value,
+        run_commands,
+        field_set.command.value
     )
-    dockerfile = StringIO()
-    dockerfile.write("FROM {}\n".format(field_set.base_image.value))
-    if field_set.workdir:
-        dockerfile.write("WORKDIR {}\n".format(field_set.workdir.value))
-    if field_set.image_setup.value:
-        dockerfile.writelines(
-            ["RUN {}\n".format(line) for line in field_set.image_setup.value]
-        )
-    dockerfile.write("COPY {} .\n".format(constraints.file_name))
-    dockerfile.writelines(run_commands)
-    dockerfile.write("RUN rm {}\n".format(constraints.file_name))
-    dockerfile.write("COPY application .\n")
-    if field_set.command.value:
-        cmd_string = "CMD [{}]\n".format(
-            ",".join(f'"{cmd}"' for cmd in field_set.command.value)
-        )
-        dockerfile.write(cmd_string)
-
-    logger.debug("DockerFile: \n%s", dockerfile.getvalue())
-
+    
     dockerfile = await Get(
         Digest,
         CreateDigest(
-            [FileContent("Dockerfile", dockerfile.getvalue().encode("utf-8"))]
+            [FileContent("Dockerfile", dockerfile_contents.getvalue().encode("utf-8"))]
         ),
     )
-    snapshot = await Get(Snapshot, Digest, digest)
-    logger.info("Files %s", snapshot.files)
     docker_context = await Get(Digest, MergeDigests([dockerfile,
-                                                     snapshot.digest,
-                                                     constraints.digest]))
+                                                     application_digest]))
+    print((await Get(Snapshot, Digest, docker_context)).files)
     search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
     process_path = await Get(
         BinaryPaths,
@@ -115,8 +126,8 @@ async def package_into_image(
     )
     if not process_path.first_path:
         raise ValueError("Unable to locate Docker binary on paths: %s", search_paths)
-    tag_arguments =  build_tag_argument_list(target_name, field_set)
-
+    
+    tag_arguments =  _build_tag_argument_list(target_name, field_set)
     process_result = await Get(
         ProcessResult,
         Process(

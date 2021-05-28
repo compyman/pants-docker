@@ -54,6 +54,7 @@ class Tags(StringSequenceField):
 
 class Command(StringSequenceField):
     alias = "command"
+    default = []
     required = False
     help = "Command used to run the Docker container"
 

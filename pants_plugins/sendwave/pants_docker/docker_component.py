@@ -4,14 +4,14 @@ from typing import Tuple, ClassVar, Type
 
 from pants.engine.target import FieldSet, Targets
 from pants.engine.unions import union, UnionMembership
-from pants.engine.fs import Snapshot
-
+from pants.engine.fs import Digest
+from pants.backend.python.target_types import PythonRequirementsField, PythonRequirementsFileSources
 
 
 @dataclass(frozen=True)
 class DockerComponent():
     commands: Tuple[str]
-    sources: Snapshot
+    sources: Digest
 
 
 @union
@@ -25,7 +25,7 @@ class DockerComponentRequest(ABC):
 
 def from_dependencies(ts: Targets,
                       um: UnionMembership) -> Tuple[DockerComponentRequest]:
-    return tuple(request_type(request_type.field_set_type.create(t))
-                 for t in ts
-                 for request_type in um[DockerComponentRequest]
-                 if request_type.field_set_type.is_applicable(t))
+    return [request_type(request_type.field_set_type.create(t))
+            for t in ts
+            for request_type in um[DockerComponentRequest]
+            if request_type.field_set_type.is_applicable(t)]

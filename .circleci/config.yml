@@ -1,0 +1,38 @@
+version: 2.1
+
+orbs:
+  # The python orb contains a set of prepackaged CircleCI configuration you can use repeatedly in your configuration files
+  # Orb commands and jobs help you with common scripting around a language/tool
+  # so you dont have to copy and paste it everywhere.
+  # See the orb documentation here: https://circleci.com/developer/orbs/orb/circleci/python
+  python: circleci/python@1.2
+
+workflows:
+  build_plugin:  # This is the name of the workflow, feel free to change it to better match your workflow.
+    # Inside the workflow, you define the jobs you want to run.
+    # For more details on extending your workflow, see the configuration docs: https://circleci.com/docs/2.0/configuration-reference/#workflows
+    jobs:
+      - build-plugin-wheel
+
+
+jobs:
+  build-plugin-wheel:
+    docker:
+      - image: cimg/python:3.9
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 20.10.6
+      - run:
+          name: Build package
+          command: ./pants package pants_plugins/sendwave/pants_docker:pants-docker
+      - save_cache:
+          key: pants_cache-{{ arch }}
+          paths:
+            - $HOME/.cache/pants/setup
+            - $HOME/.cache/pants/named_caches
+            - $HOME/.cache/pants/lmdb_caches
+      - run:
+          name: Run tests
+          # This assumes pytest is installed via the install-package step above
+          command: pytest

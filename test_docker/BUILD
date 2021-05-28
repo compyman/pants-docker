@@ -12,11 +12,11 @@ python_library(
 docker(
         name="dockerized_flask_app",
         image_setup_commands = ["apt-get update && apt-get upgrade --yes",
-                                "apt-get -y install gcc libpq-dev",
-                                "python -m pip install --upgrade pip"],
+                                "apt-get -y install gcc libpq-dev"],
         base_image="python:3.8.8-slim-buster",
         tags=["version1", "version2"],
-        command=["/venv/bin/gunicorn"],
+        #command=["/.virtual_env/bin/python",  "-m", "gunicorn", "test_docker.app:app"],
+        command=["/.virtual_env/bin/gunicorn", "--bind=0.0.0.0:5050", "test_docker.app:app"],
         workdir="root",
         dependencies=["test_docker", "//:gunicorn", "//:gevent",],
 )
