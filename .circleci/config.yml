@@ -28,14 +28,12 @@ jobs:
           command: ./pants --version
       - run:
           name: Build package
-          command: ./pants package pants_plugins/sendwave/pants_docker:pants_docker
+          command: ./pants --no-dynamic-ui package pants_plugins/sendwave/pants_docker:pants_docker
       - save_cache:
           key: v1-pants_cache-{{ arch }}--{{ .Branch }}
           paths:
             - $HOME/.cache/pants/setup
             - $HOME/.cache/pants/named_caches
             - $HOME/.cache/pants/lmdb_caches
-      - run:
-          name: Run tests
-          # This assumes pytest is installed via the install-package step above
-          command: pytest
+      - store_artifacts:
+          path: ./dist/
