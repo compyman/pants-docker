@@ -22,7 +22,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 20.10.6
+          version: 20.10.2
       - run:
           name: Build package
           command: ./pants package pants_plugins/sendwave/pants_docker:pants-docker
