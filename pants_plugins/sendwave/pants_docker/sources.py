@@ -52,7 +52,7 @@ class DockerPythonSourcesRequest(DockerComponentRequest):
 async def get_sources(req: DockerPythonSourcesRequest) -> DockerComponent:
     source_files = await Get(StrippedSourceFiles,
                              SourceFilesRequest([req.fs.sources]))
-    return DockerComponent(        
+    return DockerComponent(
         commands=(),
         sources=source_files.snapshot.digest)
 

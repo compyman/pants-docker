@@ -12,6 +12,7 @@ from pants.backend.python.target_types import PythonRequirementsField, PythonReq
 class DockerComponent():
     commands: Tuple[str]
     sources: Digest
+    order: int = 0
 
 
 @union

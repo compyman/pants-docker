@@ -71,6 +71,7 @@ def _create_dockerfile(base_image: str,
     logger.info("DockerFile: \n%s", dockerfile.getvalue())
     return dockerfile
 
+
 @rule(level=LogLevel.DEBUG)
 async def package_into_image(
         python_setup_system: PythonSetup,
@@ -85,12 +86,9 @@ async def package_into_image(
                                      DockerComponentRequest,
                                      req)
                                  for req in dockerization_requests])
-    for dep in all_deps.closure:
-        logger.info("<%s %s>", type(dep), dep.address)
     source_digests = []
     run_commands = []
-    components = list(components)
-    components.reverse() # go bottom of tree up instead of top of tree down
+    components = sorted(components, key=lambda c: c.order)
     for component in components:
         if component.sources:
             source_digests.append(component.sources)
@@ -106,7 +104,6 @@ async def package_into_image(
         run_commands,
         field_set.command.value
     )
-    
     dockerfile = await Get(
         Digest,
         CreateDigest(
@@ -115,7 +112,7 @@ async def package_into_image(
     )
     docker_context = await Get(Digest, MergeDigests([dockerfile,
                                                      application_digest]))
-    print((await Get(Snapshot, Digest, docker_context)).files)
+
     search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
     process_path = await Get(
         BinaryPaths,
@@ -126,7 +123,6 @@ async def package_into_image(
     )
     if not process_path.first_path:
         raise ValueError("Unable to locate Docker binary on paths: %s", search_paths)
-    
     tag_arguments =  _build_tag_argument_list(target_name, field_set)
     process_result = await Get(
         ProcessResult,

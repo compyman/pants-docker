@@ -19,6 +19,8 @@ class PythonRequirementsFile(FieldSet):
 class PythonRequirementsFileRequest(DockerComponentRequest):
     field_set_type = PythonRequirementsFile
 
+
+_REQUIREMENT_FILE_ORDER = -10
 @rule
 async def get_requirement_file_component(req: PythonRequirementsFileRequest,
                                          setup: PythonSetup)->DockerComponent:
@@ -28,6 +30,7 @@ async def get_requirement_file_component(req: PythonRequirementsFileRequest,
         sources = await Get(Digest, PathGlobs([setup.requirement_constraints]))
         copy_command.append("COPY application/{} .\n".format(setup.requirement_constraints))
     return DockerComponent(
+        order=_REQUIREMENT_FILE_ORDER,
         commands=tuple([*copy_command,
                         "RUN python -m venv --upgrade /.virtual_env\n",
                         "ENV PATH=/.virtual_env/bin:$PATH\n",
@@ -73,6 +76,7 @@ async def get_requirements(req: PythonRequirementsRequest,
                              constraint_arg,
                              lib) for lib in req.fs.requirement.value)
     return DockerComponent(
+        order = 1 + _REQUIREMENT_FILE_ORDER, # this has to go _after we've created & activated the venv
         commands=commands,
         sources=None,
     )
