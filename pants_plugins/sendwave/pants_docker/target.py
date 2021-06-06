@@ -3,14 +3,13 @@ from dataclasses import dataclass
 import pants.core.goals.package
 from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
                                       OutputPathField)
-from pants.engine.unions import UnionRule
 from pants.engine.target import (COMMON_TARGET_FIELDS, Dependencies,
                                  DependenciesRequest, DescriptionField,
                                  HydratedSources, HydrateSourcesRequest,
                                  Sources, StringField, StringSequenceField,
                                  Tags, Target, Targets, TransitiveTargets,
                                  TransitiveTargetsRequest)
-
+from pants.engine.unions import UnionRule
 
 
 class BaseImage(StringField):
@@ -24,6 +23,7 @@ class DockerIgnore(StringSequenceField):
     required = False
     default = []
     help = "A list of directories to exclude from the docker build context, each entry should be a valid line in a .dockerignore file"
+
 
 class ImageSetup(StringSequenceField):
     alias = "image_setup_commands"
@@ -57,7 +57,6 @@ class Command(StringSequenceField):
     default = []
     required = False
     help = "Command used to run the Docker container"
-
 
 
 @dataclass(frozen=True)
