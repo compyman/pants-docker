@@ -5,7 +5,14 @@ from typing import Tuple, ClassVar, Type
 from pants.engine.target import FieldSet, Targets
 from pants.engine.unions import union, UnionMembership
 from pants.engine.fs import Digest
-from pants.backend.python.target_types import PythonRequirementsField, PythonRequirementsFileSources
+from pants.core.target_types import Sources, RelocatedFilesSources, FilesSources
+from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
+from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
+from pants.engine.rules import Get
+from pants.backend.python.target_types import PythonRequirementsField, PythonRequirementsFileSources, PythonLibrarySources
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -24,7 +31,7 @@ class DockerComponentRequest(ABC):
         self.fs = field_set
 
 
-def from_dependencies(ts: Targets,
+async def from_dependencies(ts: Targets,
                       um: UnionMembership) -> Tuple[DockerComponentRequest]:
     return [request_type(request_type.field_set_type.create(t))
             for t in ts

@@ -22,7 +22,7 @@ class DockerFilesRequest(DockerComponentRequest):
 @rule
 async def get_files(req: DockerFilesRequest) -> DockerComponent:
     return DockerComponent(commands=(),
-                           sources=(await Get(SourceFiles,
+                           sources=(await Get(StrippedSourceFiles,
                                               SourceFilesRequest([req.fs.sources]))).snapshot.digest)
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class DockerResourcesRequest(DockerComponentRequest):
 @rule
 async def get_resources(req: DockerResourcesRequest) -> DockerComponent:
     return DockerComponent(commands=(),
-                           sources=(await Get(SourceFiles,
+                           sources=(await Get(StrippedSourceFiles,
                                               SourceFilesRequest([req.fs.sources]))).snapshot.digest)
 
 @dataclass(frozen=True)

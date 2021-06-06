@@ -81,7 +81,7 @@ async def package_into_image(
     target_name = field_set.address._target_name
     direct_deps = await Get(Targets, DependenciesRequest(field_set.dependencies))
     all_deps = await Get(TransitiveTargets, TransitiveTargetsRequest([d.address for d in direct_deps]))
-    dockerization_requests = docker.from_dependencies(all_deps.closure, um)
+    dockerization_requests = await docker.from_dependencies(all_deps.closure, um)
     components = await MultiGet([Get(DockerComponent,
                                      DockerComponentRequest,
                                      req)

@@ -12,7 +12,8 @@ backend_packages = [
 [source]
 root_patterns = [
               "/pants_plugins",
-              "/"
+              "/",
+              "/test_docker"
               ]
 
 [python-setup]
