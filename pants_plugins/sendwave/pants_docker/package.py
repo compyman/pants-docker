@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from io import StringIO
 from typing import Any, Coroutine, Iterable, List, Optional, Tuple
 
-import sendwave.pants_docker.docker_component as docker
+import sendwave.pants_docker.docker_component as docker_component
 from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
                                       OutputPathField)
+from pants.engine.environment import Environment, EnvironmentRequest
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
                              MergeDigests, PathGlobs, Snapshot)
 from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
@@ -22,6 +23,22 @@ from sendwave.pants_docker.docker_component import (DockerComponent,
 from sendwave.pants_docker.target import Docker, DockerPackageFieldSet
 
 logger = logging.getLogger(__name__)
+
+DOCKER_ENV_VARS = [
+    "DOCKER_CERT_PATH",
+    "DOCKER_CONFIG",
+    "DOCKER_CONTENT_TRUST_SERVER",
+    "DOCKER_CONTENT_TRUST",
+    "DOCKER_CONTEXT",
+    "DOCKER_DEFAULT_PLATFORM",
+    "DOCKER_HIDE_LEGACY_COMMANDS",
+    "DOCKER_HOST",
+    "DOCKER_STACK_ORCHESTRATOR",
+    "DOCKER_TLS_VERIFY",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+]
 
 
 def _build_tags(target_name: str, field_set: DockerPackageFieldSet) -> List[str]:
@@ -81,7 +98,9 @@ async def package_into_image(
     all_deps = await Get(
         TransitiveTargets, TransitiveTargetsRequest([d.address for d in direct_deps])
     )
-    dockerization_requests = await docker.from_dependencies(all_deps.closure, um)
+    dockerization_requests = await docker_component.from_dependencies(
+        all_deps.closure, um
+    )
     components = await MultiGet(
         [
             Get(DockerComponent, DockerComponentRequest, req)
@@ -124,10 +143,14 @@ async def package_into_image(
     )
     if not process_path.first_path:
         raise ValueError("Unable to locate Docker binary on paths: %s", search_paths)
+
     tag_arguments = _build_tag_argument_list(target_name, field_set)
+    docker_env = await Get(Environment, EnvironmentRequest(DOCKER_ENV_VARS))
+
     process_result = await Get(
         ProcessResult,
         Process(
+            env=docker_env,
             argv=[process_path.first_path.path, "build", *tag_arguments, "."],
             input_digest=docker_context,
             description=f"Creating Docker Image from {target_name} and dependencies",
