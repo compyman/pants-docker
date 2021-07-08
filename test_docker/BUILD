@@ -1,14 +1,21 @@
 
-resources(name="templates",
-          sources=["templates/*"])
+resources(name="resources",
+          sources=["static/*"])
 
-files(name="static",
+files(name="files",
       sources=["static/*"])
+
+relocated_files(name="relocated",
+                files_targets=[":static"],
+                src="static/",
+                dest="imgs/")
 
 python_library(
     name="test_docker",
-    dependencies=["test_docker:templates",
-                  "test_docker:static",]
+    dependencies=[":files",
+                  ":resources",
+                  ":relocated",
+                  ]
 )
 
 
