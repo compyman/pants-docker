@@ -2,7 +2,6 @@ from dataclasses import dataclass
 
 from pants.backend.python.target_types import (PythonRequirementsField,
                                                PythonRequirementsFileSources)
-from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.engine.fs import Digest, PathGlobs
 from pants.engine.rules import Get, collect_rules, rule
 from pants.engine.target import FieldSet
@@ -28,14 +27,14 @@ _REQUIREMENT_FILE_ORDER = -10
 
 @rule
 async def get_requirement_file_component(
-    req: PythonRequirementsFileRequest, setup: PythonSetup
+    _: PythonRequirementsFileRequest, python_setup: PythonSetup
 ) -> DockerComponent:
     sources = None
     copy_command = []
-    if setup.requirement_constraints:
-        sources = await Get(Digest, PathGlobs([setup.requirement_constraints]))
+    if python_setup.requirement_constraints:
+        sources = await Get(Digest, PathGlobs([python_setup.requirement_constraints]))
         copy_command.append(
-            "COPY application/{} .\n".format(setup.requirement_constraints)
+            "COPY application/{} .\n".format(python_setup.requirement_constraints)
         )
     return DockerComponent(
         order=_REQUIREMENT_FILE_ORDER,

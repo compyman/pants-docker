@@ -1,17 +1,9 @@
 import logging
 from abc import ABC
 from dataclasses import dataclass
-from typing import ClassVar, Tuple, Type
+from typing import ClassVar, List, Tuple, Type
 
-from pants.backend.python.target_types import (PythonLibrarySources,
-                                               PythonRequirementsField,
-                                               PythonRequirementsFileSources)
-from pants.core.target_types import (FilesSources, RelocatedFilesSources,
-                                     Sources)
-from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
-from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.fs import Digest
-from pants.engine.rules import Get
 from pants.engine.target import FieldSet, Targets
 from pants.engine.unions import UnionMembership, union
 
@@ -20,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class DockerComponent:
-    commands: Tuple[str]
+    commands: Tuple[str, ...]
     sources: Digest
     order: int = 0
 
@@ -34,12 +26,12 @@ class DockerComponentRequest(ABC):
         self.fs = field_set
 
 
-async def from_dependencies(
-    ts: Targets, um: UnionMembership
-) -> Tuple[DockerComponentRequest]:
+def from_dependencies(
+    tgts: Targets, um: UnionMembership
+) -> List[DockerComponentRequest]:
     return [
-        request_type(request_type.field_set_type.create(t))
-        for t in ts
+        request_type(request_type.field_set_type.create(tgt))
+        for tgt in tgts
         for request_type in um[DockerComponentRequest]
-        if request_type.field_set_type.is_applicable(t)
+        if request_type.field_set_type.is_applicable(tgt)
     ]
