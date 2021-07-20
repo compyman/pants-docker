@@ -6,7 +6,7 @@ files(name="files",
       sources=["static/*"])
 
 relocated_files(name="relocated",
-                files_targets=[":static"],
+                files_targets=[":files"],
                 src="static/",
                 dest="imgs/")
 

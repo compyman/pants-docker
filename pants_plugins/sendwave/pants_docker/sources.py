@@ -1,7 +1,9 @@
+import logging
 from dataclasses import dataclass
 
 from pants.backend.python.target_types import PythonSources
-from pants.core.target_types import FilesSources, ResourcesSources, RelocatedFilesSources
+from pants.core.target_types import (FilesSources, RelocatedFilesSources,
+                                     ResourcesSources)
 from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.rules import Get, collect_rules, rule
@@ -9,30 +11,9 @@ from pants.engine.target import FieldSet, Sources
 from pants.engine.unions import UnionRule
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentRequest)
-import logging
+
 logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
-class DockerRelocatedFiles(FieldSet):
-    required_fields = (RelocatedFilesSources,)
-    sources: RelocatedFilesSources
-
-
-class DockerRelocatedFilesRequest(DockerComponentRequest):
-    field_set_type = DockerRelocatedFiles
-
-
-@rule
-async def get_relocated_files(req: DockerRelocatedFiles) -> DockerComponent:
-    sources = await Get(SourceFiles,
-                        SourceFilesRequest,
-                        SourceFilesRequest(sources_fields=[req.fs.sources],
-                                           for_sources_types=[RelocatedFilesSources]))
-    logger.info("relocated_files  %s", ",".join(sources.snapshot.files))
-    return DockerComponent(
-        commands=(),
-        sources=sources.snapshot.digest,
-    )
 
 @dataclass(frozen=True)
 class DockerFiles(FieldSet):
@@ -47,7 +28,9 @@ class DockerFilesRequest(DockerComponentRequest):
 @rule
 async def get_files(req: DockerFilesRequest) -> DockerComponent:
     sources = await Get(StrippedSourceFiles, SourceFilesRequest([req.fs.sources]))
+    print(sources)
     logger.info("source_files  %s", ",".join(sources.snapshot.files))
+    print(sources.snapshot.files)
     return DockerComponent(
         commands=(),
         sources=sources.snapshot.digest,
@@ -96,6 +79,5 @@ def rules():
         UnionRule(DockerComponentRequest, DockerPythonSourcesRequest),
         UnionRule(DockerComponentRequest, DockerResourcesRequest),
         UnionRule(DockerComponentRequest, DockerFilesRequest),
-        UnionRule(DockerComponentRequest, DockerRelocatedFilesRequest),
-        *collect_rules()
+        *collect_rules(),
     ]
