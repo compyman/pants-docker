@@ -27,6 +27,9 @@ jobs:
           name: setup_pants
           command: ./pants --version
       - run:
+          name: run tests
+          command: './pants --no-dynamic-ui test ::'
+      - run:
           name: Build package
           command: ./pants --no-dynamic-ui package pants_plugins/sendwave/pants_docker:pants_docker
       - save_cache:
