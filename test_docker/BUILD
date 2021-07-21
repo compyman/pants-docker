@@ -14,8 +14,7 @@ python_library(
     name="test_docker",
     dependencies=[":files",
                   ":resources",
-                  ":relocated",
-                  ]
+                  ":relocated",]
 )
 
 

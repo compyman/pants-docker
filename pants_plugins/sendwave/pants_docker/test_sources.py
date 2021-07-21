@@ -1,23 +1,20 @@
 import pytest
 from pants.backend.python.goals import pytest_runner
-from pants.backend.python.goals.pytest_runner import PythonTestFieldSet
-from pants.backend.python.target_types import (PythonLibrary, PythonSources,
+from pants.backend.python.target_types import (PythonLibrary,
                                                PythonTests)
 from pants.backend.python.util_rules import pex_from_targets
-from pants.core.goals.test import TestResult
+
 from pants.core.target_types import Files, RelocatedFiles, Resources
 from pants.engine.addresses import Address
-from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
-                             MergeDigests, PathGlobs, Snapshot)
-from pants.engine.rules import rule
+from pants.engine.fs import (Snapshot)
+
 from pants.testutil.rule_runner import QueryRule, RuleRunner
-from sendwave.pants_docker.sources import (DockerComponent,
-                                           DockerComponentRequest, DockerFiles,
-                                           DockerFilesRequest,
-                                           DockerPythonSources,
-                                           DockerPythonSourcesRequest,
-                                           DockerResources,
-                                           DockerResourcesRequest, rules)
+from sendwave.pants_docker.docker_component import (DockerComponent)
+from sendwave.pants_docker.sources import (DockerResourcesFS,
+                                           DockerFilesFS,
+                                           DockerPythonSourcesFS,
+                                           DockerRelocatedFilesFS,
+                                           rules)
 
 
 @pytest.fixture
@@ -28,9 +25,10 @@ def rule_runner() -> RuleRunner:
             *pytest_runner.rules(),
             *pex_from_targets.rules(),
             *rules(),
-            QueryRule(DockerComponent, [DockerPythonSourcesRequest]),
-            QueryRule(DockerComponent, [DockerFilesRequest]),
-            QueryRule(DockerComponent, [DockerResourcesRequest]),
+            QueryRule(DockerComponent, [DockerPythonSourcesFS]),
+            QueryRule(DockerComponent, [DockerFilesFS]),
+            QueryRule(DockerComponent, [DockerResourcesFS]),
+            QueryRule(DockerComponent, [DockerRelocatedFilesFS]),
         ],
     )
     return rule_runner
@@ -59,7 +57,7 @@ def sources_runner(rule_runner: RuleRunner) -> RuleRunner:
 def test_get_python_sources(sources_runner: RuleRunner) -> None:
     t = sources_runner.get_target(address=Address("app", target_name=""))
     x = sources_runner.request(
-        DockerComponent, [DockerPythonSourcesRequest(DockerPythonSources.create(t))]
+        DockerComponent, [DockerPythonSourcesFS.create(t)]
     )
     snap = sources_runner.request(Snapshot, [x.sources])
     assert snap.files == ("app/test.py",)
@@ -68,7 +66,7 @@ def test_get_python_sources(sources_runner: RuleRunner) -> None:
 def test_get_files(sources_runner: RuleRunner) -> None:
     t = sources_runner.get_target(address=Address("app", target_name="file"))
     x = sources_runner.request(
-        DockerComponent, [DockerFilesRequest(DockerFiles.create(t))]
+        DockerComponent, [DockerFilesFS.create(t)]
     )
     snap = sources_runner.request(Snapshot, [x.sources])
     assert snap.files == ("app/test.txt",)
@@ -77,7 +75,35 @@ def test_get_files(sources_runner: RuleRunner) -> None:
 def test_get_resources(sources_runner: RuleRunner) -> None:
     t = sources_runner.get_target(address=Address("app", target_name="resources"))
     x = sources_runner.request(
-        DockerComponent, [DockerResourcesRequest(DockerResources.create(t))]
+        DockerComponent, [DockerResourcesFS.create(t)]
     )
     snap = sources_runner.request(Snapshot, [x.sources])
+    assert snap.files == ("app/resources.txt",)
+
+
+@pytest.fixture
+def relocated_runner(rule_runner: RuleRunner) -> RuleRunner:
+    BUILD = (
+        "files(name='to-move', sources=['move_me.txt'])\n"
+        "relocated_files(name='moved', files_targets=[':to-move'], src='./', dest='moved-now/')"
+    )
+    rule_runner.write_files(
+        {
+            "app/move_me.txt": "",
+            "app/BUILD": BUILD,
+        }
+    )
+
+    return rule_runner
+
+
+def test_get_relocated_files(relocated_runner: RuleRunner) -> None:
+    t = relocated_runner.get_target(address=Address("app", target_name="moved"))
+    print(t)
+    x = relocated_runner.request(
+        DockerComponent, [DockerRelocatedFilesFS.create(t)]
+    )
+    print(x)
+    snap = relocated_runner.request(Snapshot, [x.sources])
+    print(snap)
     assert snap.files == ("app/resources.txt",)

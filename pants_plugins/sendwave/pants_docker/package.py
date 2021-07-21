@@ -95,15 +95,20 @@ async def package_into_image(
     transitive_targets = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
     )
-
-    docker_components_field_sets = tuple(
-        field_set_type(
-            field_set_type.create(target)
-            for target in transitive_targets.dependencies
-            if field_set_type.is_applicable(target)
-        )
-        for field_set_type in union_membership[DockerComponentFieldSet]
-    )
+    docker_components_field_sets = []
+    for field_set_type in union_membership[DockerComponentFieldSet]:
+        logger.info('hi {}'.format(field_set_type))
+        for target in transitive_targets.dependencies:
+            
+            if field_set_type.is_applicable(target):
+                logger.info("Is Applicable")
+                logger.info("target %s", target)
+                field_set = field_set_type(
+                    field_set_type.create(target)            
+                )
+                logger.info(field_set)
+                docker_components_field_sets.append(field_set)
+    docker_components_field_sets = tuple(docker_components_field_sets)
     components = await MultiGet(
         Get(DockerComponent, DockerComponentFieldSet, fs)
         for fs in docker_components_field_sets

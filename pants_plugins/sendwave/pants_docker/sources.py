@@ -16,6 +16,27 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class DockerRelocatedFilesFS(FieldSet):
+    required_fields = (RelocatedFilesSources,)
+    sources: RelocatedFilesSources
+
+
+@rule
+async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerComponent:
+    return DockerComponent(
+        commands=(),
+        sources=(await Get(
+            SourceFiles,
+            SourceFilesRequest,
+            SourceFilesRequest(
+                sources_fields=[field_set.sources],
+                for_sources_types=[RelocatedFilesSources],
+            ),
+        )).snapshot.digest,
+    )
+
+
+@dataclass(frozen=True)
 class DockerFilesFS(FieldSet):
     required_fields = (FilesSources,)
     sources: FilesSources
@@ -55,7 +76,9 @@ class DockerPythonSourcesFS(FieldSet):
 
 @rule
 async def get_sources(field_set: DockerPythonSourcesFS) -> DockerComponent:
-    source_files = await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+    source_files = await Get(
+        StrippedSourceFiles, SourceFilesRequest([field_set.sources])
+    )
     return DockerComponent(commands=(), sources=source_files.snapshot.digest)
 
 
@@ -64,5 +87,6 @@ def rules():
         UnionRule(DockerComponentFieldSet, DockerPythonSourcesFS),
         UnionRule(DockerComponentFieldSet, DockerResourcesFS),
         UnionRule(DockerComponentFieldSet, DockerFilesFS),
+        UnionRule(DockerComponentFieldSet, DockerRelocatedFilesFS),
         *collect_rules(),
     ]
