@@ -17,7 +17,7 @@ from pants.engine.target import (DependenciesRequest, Targets,
 from pants.engine.unions import UnionMembership
 from pants.util.logging import LogLevel
 from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentRequest)
+                                                    DockerComponentFieldSet)
 from sendwave.pants_docker.target import Docker, DockerPackageFieldSet
 
 logger = logging.getLogger(__name__)
@@ -89,20 +89,26 @@ def _create_dockerfile(
 @rule(level=LogLevel.DEBUG)
 async def package_into_image(
     field_set: DockerPackageFieldSet,
-    um: UnionMembership,
+    union_membership: UnionMembership,
 ) -> BuiltPackage:
     target_name = field_set.address.target_name
     transitive_targets = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
     )
 
-    dockerization_requests = docker_component.from_dependencies(
-        transitive_targets.dependencies, um
+    docker_components_field_sets = tuple(
+        field_set_type(
+            field_set_type.create(target)
+            for target in transitive_targets.dependencies
+            if field_set_type.is_applicable(target)
+        )
+        for field_set_type in union_membership[DockerComponentFieldSet]
     )
     components = await MultiGet(
-        Get(DockerComponent, DockerComponentRequest, req)
-        for req in dockerization_requests
+        Get(DockerComponent, DockerComponentFieldSet, fs)
+        for fs in docker_components_field_sets
     )
+
     source_digests = []
     run_commands = []
     components = sorted(components, key=lambda c: c.order)

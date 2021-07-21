@@ -9,17 +9,13 @@ from pants.engine.unions import UnionRule
 from pants.python.python_repos import PythonRepos
 from pants.python.python_setup import PythonSetup
 from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentRequest)
+                                                    DockerComponentFieldSet)
 
 
 @dataclass(frozen=True)
-class PythonRequirementsFile(FieldSet):
+class PythonRequirementsFileFS(FieldSet):
     required_fields = (PythonRequirementsFileSources,)
     requirement_file: PythonRequirementsFileSources
-
-
-class PythonRequirementsFileRequest(DockerComponentRequest):
-    field_set_type = PythonRequirementsFile
 
 
 _REQUIREMENT_FILE_ORDER = -10
@@ -27,7 +23,7 @@ _REQUIREMENT_FILE_ORDER = -10
 
 @rule
 async def get_requirement_file_component(
-    _: PythonRequirementsFileRequest, python_setup: PythonSetup
+    _: PythonRequirementsFileFS, python_setup: PythonSetup
 ) -> DockerComponent:
     sources = None
     copy_command = []
@@ -52,18 +48,14 @@ async def get_requirement_file_component(
 
 
 @dataclass(frozen=True)
-class PythonRequirements(FieldSet):
+class PythonRequirementsFS(FieldSet):
     required_fields = (PythonRequirementsField,)
-    requirement: PythonRequirementsField
-
-
-class PythonRequirementsRequest(DockerComponentRequest):
-    field_set_type = PythonRequirements
+    requirements: PythonRequirementsField
 
 
 @rule
 async def get_requirements(
-    req: PythonRequirementsRequest, setup: PythonSetup, repos: PythonRepos
+    field_set: PythonRequirementsFS, setup: PythonSetup, repos: PythonRepos
 ) -> DockerComponent:
     if repos.repos:
         links_args = " ".join("--find-links {}".format(repo for repo in repos.repos))
@@ -86,11 +78,11 @@ async def get_requirements(
         "RUN python -m pip install {} {} {} {}\n".format(
             index_args, links_args, constraint_arg, lib
         )
-        for lib in req.fs.requirement.value
+        for lib in field_set.requirements.value
     )
     return DockerComponent(
-        order=1
-        + _REQUIREMENT_FILE_ORDER,  # this has to go _after we've created & activated the venv
+        # This has to go _after we've created & activated the venv.
+        order=1 + _REQUIREMENT_FILE_ORDER,
         commands=commands,
         sources=None,
     )
@@ -98,7 +90,7 @@ async def get_requirements(
 
 def rules():
     return [
-        UnionRule(DockerComponentRequest, PythonRequirementsRequest),
-        UnionRule(DockerComponentRequest, PythonRequirementsFileRequest),
+        UnionRule(DockerComponentFieldSet, PythonRequirementsFS),
+        UnionRule(DockerComponentFieldSet, PythonRequirementsFileFS),
         *collect_rules(),
     ]
