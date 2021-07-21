@@ -3,22 +3,19 @@ import logging
 from io import StringIO
 from typing import Iterable, List, Optional
 
-import sendwave.pants_docker.docker_component as docker_component
-from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
-                                      OutputPathField)
+from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact)
 from pants.engine.environment import Environment, EnvironmentRequest
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
-                             MergeDigests, PathGlobs, Snapshot)
+                             MergeDigests, Snapshot)
 from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
                                   ProcessResult)
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
-from pants.engine.target import (DependenciesRequest, Targets,
-                                 TransitiveTargets, TransitiveTargetsRequest)
+from pants.engine.target import (TransitiveTargets, TransitiveTargetsRequest)
 from pants.engine.unions import UnionMembership
 from pants.util.logging import LogLevel
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
-from sendwave.pants_docker.target import Docker, DockerPackageFieldSet
+from sendwave.pants_docker.target import DockerPackageFieldSet
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +49,7 @@ def _build_tags(
 def _build_tag_argument_list(
     target_name: str, tags: List[str], registry: Optional[str]
 ) -> List[str]:
-    """Turns a list of docker registry/name:tags strings the a list with one
+    """Turn a list of docker registry/name:tags strings the a list with one
     "-t" before each "registry/name:tag i.e. ["test-container:version-1"] ->
 
     ["-t", "test-container:version"] which can be used as process
@@ -70,6 +67,10 @@ def _create_dockerfile(
     commands: Iterable[str],
     init_command: Iterable[str],
 ) -> str:
+    """Construct a Dockerfile and write it into a string variable.
+    Uses commands explicitly specified in the docker target definition &
+    generated from the Target's dependencies
+    """
     dockerfile = StringIO()
     dockerfile.write("FROM {}\n".format(base_image))
     if workdir:
@@ -91,6 +92,9 @@ async def package_into_image(
     field_set: DockerPackageFieldSet,
     union_membership: UnionMembership,
 ) -> BuiltPackage:
+    """ Package a 'docker' Target into an image.
+    """
+
     target_name = field_set.address.target_name
     transitive_targets = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
