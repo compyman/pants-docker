@@ -51,7 +51,9 @@ class DockerPythonSourcesFS(FieldSet):
 
 @rule
 async def get_sources(field_set: DockerPythonSourcesFS) -> DockerComponent:
-    source_files = await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+    source_files = await Get(
+        StrippedSourceFiles, SourceFilesRequest([field_set.sources])
+    )
     return DockerComponent(commands=(), sources=source_files.snapshot.digest)
 
 
