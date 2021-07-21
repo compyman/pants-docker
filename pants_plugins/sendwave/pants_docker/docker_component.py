@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Tuple
 
 from pants.engine.fs import Digest
-from pants.engine.unions import UnionMembership, union
+from pants.engine.unions import union
 
 logger = logging.getLogger(__name__)
 
