@@ -10,74 +10,59 @@ from pants.engine.rules import Get, collect_rules, rule
 from pants.engine.target import FieldSet, Sources
 from pants.engine.unions import UnionRule
 from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentRequest)
+                                                    DockerComponentFieldSet)
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class DockerFiles(FieldSet):
+class DockerFilesFS(FieldSet):
     required_fields = (FilesSources,)
     sources: FilesSources
 
 
-class DockerFilesRequest(DockerComponentRequest):
-    field_set_type = DockerFiles
-
-
 @rule
-async def get_files(req: DockerFilesRequest) -> DockerComponent:
-    sources = await Get(StrippedSourceFiles, SourceFilesRequest([req.fs.sources]))
-    print(sources)
-    logger.info("source_files  %s", ",".join(sources.snapshot.files))
-    print(sources.snapshot.files)
+async def get_files(field_set: DockerFilesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
-        sources=sources.snapshot.digest,
+        sources=(
+            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+        ).snapshot.digest,
     )
 
 
 @dataclass(frozen=True)
-class DockerResources(FieldSet):
+class DockerResourcesFS(FieldSet):
     required_fields = (ResourcesSources,)
     sources: ResourcesSources
 
 
-class DockerResourcesRequest(DockerComponentRequest):
-    field_set_type = DockerResources
-
-
 @rule
-async def get_resources(req: DockerResourcesRequest) -> DockerComponent:
-    sources = await Get(StrippedSourceFiles, SourceFilesRequest([req.fs.sources]))
-    logger.info("resource_files  %s", ",".join(sources.snapshot.files))
+async def get_resources(field_set: DockerResourcesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
-        sources=sources.snapshot.digest,
+        sources=(
+            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+        ).snapshot.digest,
     )
 
 
 @dataclass(frozen=True)
-class DockerPythonSources(FieldSet):
+class DockerPythonSourcesFS(FieldSet):
     required_fields = (PythonSources,)
     sources: PythonSources
 
 
-class DockerPythonSourcesRequest(DockerComponentRequest):
-    field_set_type = DockerPythonSources
-
-
 @rule
-async def get_sources(req: DockerPythonSourcesRequest) -> DockerComponent:
-    source_files = await Get(StrippedSourceFiles, SourceFilesRequest([req.fs.sources]))
-    logger.info("python_source_files  %s", ",".join(source_files.snapshot.files))
+async def get_sources(field_set: DockerPythonSourcesFS) -> DockerComponent:
+    source_files = await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
     return DockerComponent(commands=(), sources=source_files.snapshot.digest)
 
 
 def rules():
     return [
-        UnionRule(DockerComponentRequest, DockerPythonSourcesRequest),
-        UnionRule(DockerComponentRequest, DockerResourcesRequest),
-        UnionRule(DockerComponentRequest, DockerFilesRequest),
+        UnionRule(DockerComponentFieldSet, DockerPythonSourcesFS),
+        UnionRule(DockerComponentFieldSet, DockerResourcesFS),
+        UnionRule(DockerComponentFieldSet, DockerFilesFS),
         *collect_rules(),
     ]
