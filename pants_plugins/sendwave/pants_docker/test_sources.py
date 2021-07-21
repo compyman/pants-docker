@@ -79,31 +79,3 @@ def test_get_resources(sources_runner: RuleRunner) -> None:
     )
     snap = sources_runner.request(Snapshot, [x.sources])
     assert snap.files == ("app/resources.txt",)
-
-
-@pytest.fixture
-def relocated_runner(rule_runner: RuleRunner) -> RuleRunner:
-    BUILD = (
-        "files(name='to-move', sources=['move_me.txt'])\n"
-        "relocated_files(name='moved', files_targets=[':to-move'], src='./', dest='moved-now/')"
-    )
-    rule_runner.write_files(
-        {
-            "app/move_me.txt": "",
-            "app/BUILD": BUILD,
-        }
-    )
-
-    return rule_runner
-
-
-def test_get_relocated_files(relocated_runner: RuleRunner) -> None:
-    t = relocated_runner.get_target(address=Address("app", target_name="moved"))
-    print(t)
-    x = relocated_runner.request(
-        DockerComponent, [DockerRelocatedFilesFS.create(t)]
-    )
-    print(x)
-    snap = relocated_runner.request(Snapshot, [x.sources])
-    print(snap)
-    assert snap.files == ("app/resources.txt",)

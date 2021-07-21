@@ -7,8 +7,9 @@ files(name="files",
 
 relocated_files(name="relocated",
                 files_targets=[":files"],
-                src="static/",
-                dest="imgs/")
+                # stripping source roots happens after the files are moved
+                src="test_docker/static/",
+                dest="test_docker/imgs/")
 
 python_library(
     name="test_docker",
