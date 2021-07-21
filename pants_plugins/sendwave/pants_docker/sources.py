@@ -23,16 +23,19 @@ class DockerRelocatedFilesFS(FieldSet):
 
 @rule
 async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerComponent:
-    return DockerComponent(
-        commands=(),
-        sources=(await Get(
+    logger.info("Getting Relocated Files for: %s", field_set)
+    source_files = await Get(
             SourceFiles,
             SourceFilesRequest,
             SourceFilesRequest(
                 sources_fields=[field_set.sources],
                 for_sources_types=[RelocatedFilesSources],
-            ),
-        )).snapshot.digest,
+            )
+        )
+    logger.info("Source Files: %s", source_files.snapshot.files)
+    return DockerComponent(
+        commands=(),
+        sources=source_files.snapshot.digest
     )
 
 
