@@ -97,12 +97,10 @@ async def package_into_image(
     )
 
     docker_components_field_sets = tuple(
-        field_set_type(
-            field_set_type.create(target)
-            for target in transitive_targets.dependencies
-            if field_set_type.is_applicable(target)
-        )
+        field_set_type.create(target)
         for field_set_type in union_membership[DockerComponentFieldSet]
+        for target in transitive_targets.dependencies
+        if field_set_type.is_applicable(target)
     )
     components = await MultiGet(
         Get(DockerComponent, DockerComponentFieldSet, fs)
