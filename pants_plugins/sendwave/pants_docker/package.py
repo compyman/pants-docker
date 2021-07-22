@@ -29,11 +29,10 @@ from io import StringIO
 from typing import Iterable, List, Optional
 
 from pants.core.goals.package import BuiltPackage, BuiltPackageArtifact
-from pants.engine.environment import Environment, EnvironmentRequest
+
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
                              MergeDigests, Snapshot)
-from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
-                                  ProcessResult)
+from pants.engine.process import (Process, ProcessResult)
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
 from pants.engine.target import TransitiveTargets, TransitiveTargetsRequest
 from pants.engine.unions import UnionMembership
@@ -41,26 +40,10 @@ from pants.util.logging import LogLevel
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
 from sendwave.pants_docker.target import DockerPackageFieldSet
-
+from sendwave.pants_docker.utils import (docker_environment, docker_executable)
 logger = logging.getLogger(__name__)
 
-# Docker uses all of these env variables to connect to the docker
-# server process
-DOCKER_ENV_VARS = [
-    "DOCKER_CERT_PATH",
-    "DOCKER_CONFIG",
-    "DOCKER_CONTENT_TRUST_SERVER",
-    "DOCKER_CONTENT_TRUST",
-    "DOCKER_CONTEXT",
-    "DOCKER_DEFAULT_PLATFORM",
-    "DOCKER_HIDE_LEGACY_COMMANDS",
-    "DOCKER_HOST",
-    "DOCKER_STACK_ORCHESTRATOR",
-    "DOCKER_TLS_VERIFY",
-    "HTTP_PROXY",
-    "HTTPS_PROXY",
-    "NO_PROXY",
-]
+
 
 
 def _build_tags(
@@ -182,22 +165,10 @@ async def package_into_image(
     # connection enviornment variables
     docker_context, docker_env = await MultiGet(
         Get(Digest, MergeDigests([dockerfile, application_snapshot.digest])),
-        Get(Environment, EnvironmentRequest(DOCKER_ENV_VARS)),
+        docker_environment()
     )
-
+    process_path = await docker_executable()
     # Find the docker executable
-    search_paths = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/bin"]
-    process_path = await Get(
-        BinaryPaths,
-        BinaryPathRequest(
-            binary_name="docker",
-            search_path=search_paths,
-        ),
-    )
-    if not process_path.first_path:
-        raise ValueError(
-            "Unable to locate Docker binary on paths: %s",
-            search_paths)
     # build an list of arguments of the form ["-t",
     # "registry/name:tag"] to pass to the docker executable
     tag_arguments = _build_tag_argument_list(
