@@ -39,12 +39,6 @@ class WorkDir(StringField):
     help = "The directory inside the container into which"
 
 
-class Registry(StringField):
-    alias = "registry"
-    required = False
-    help = "The registry of the resulting docker image"
-
-
 class Tags(StringSequenceField):
     alias = "tags"
     default = []
@@ -63,11 +57,9 @@ class Command(StringSequenceField):
 class DockerPackageFieldSet(pants.core.goals.package.PackageFieldSet):
     alias = "docker_field_set"
     required_fields = (BaseImage,)
-
     base_image: BaseImage
     image_setup: ImageSetup
     ignore: DockerIgnore
-    registry: Registry
     tags: Tags
     dependencies: Dependencies
     workdir: WorkDir

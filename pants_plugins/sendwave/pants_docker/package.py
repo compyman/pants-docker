@@ -41,7 +41,7 @@ from pants.engine.unions import UnionMembership
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
 from sendwave.pants_docker.target import DockerPackageFieldSet
-
+from sendwave.pants_docker.subsystem import DockerPackageSubsystem
 logger = logging.getLogger(__name__)
 
 
@@ -107,8 +107,9 @@ def _create_dockerfile(
 
 @rule()
 async def package_into_image(
-    field_set: DockerPackageFieldSet,
-    union_membership: UnionMembership,
+        field_set: DockerPackageFieldSet,
+        union_membership: UnionMembership,
+        subsystem: DockerPackageSubsystem,
 ) -> BuiltPackage:
     """Build a docker image from a 'docker' build target.
 
@@ -183,8 +184,11 @@ async def package_into_image(
     process_path = docker_paths.first_path.path
     # build an list of arguments of the form ["-t",
     # "registry/name:tag"] to pass to the docker executable
+    tags = list(field_set.tags.value)
+    tags.extend(subsystem.options.tags)
+    logger.info(tags)
     tag_arguments = _build_tag_argument_list(
-        target_name, field_set.tags.value or [], field_set.registry.value
+        target_name, tags, subsystem.options.registry
     )
     # create the image
     process_args = [process_path, "build"]
