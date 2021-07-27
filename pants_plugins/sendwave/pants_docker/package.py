@@ -33,14 +33,15 @@ from pants.core.goals.package import BuiltPackage, BuiltPackageArtifact
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
                              MergeDigests, Snapshot)
 from pants.engine.process import (Process, ProcessResult)
+from pants.engine.process import (BinaryPathRequest, BinaryPaths)
+from pants.engine.environment import Environment, EnvironmentRequest
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
 from pants.engine.target import TransitiveTargets, TransitiveTargetsRequest
 from pants.engine.unions import UnionMembership
-from pants.util.logging import LogLevel
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
 from sendwave.pants_docker.target import DockerPackageFieldSet
-from sendwave.pants_docker.utils import (docker_environment, docker_executable)
+import sendwave.pants_docker.utils as utils
 logger = logging.getLogger(__name__)
 
 
@@ -105,12 +106,10 @@ def _create_dockerfile(
             ",".join('"{}"'.format(c)
                      for c in init_command))
         dockerfile.write(cmd)
-
-    logger.info("DockerFile: \n%s", dockerfile.getvalue())
     return dockerfile.getvalue()
 
 
-@rule(level=LogLevel.DEBUG)
+@rule()
 async def package_into_image(
     field_set: DockerPackageFieldSet,
     union_membership: UnionMembership,
@@ -125,16 +124,20 @@ async def package_into_image(
     transitive_targets = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
     )
+    component_list = []
+    logger.debug("Building Target %s", target_name)
+    for field_set_type in union_membership[DockerComponentFieldSet]:
+        for target in transitive_targets.dependencies:
+            if field_set_type.is_applicable(target):
+                logger.debug("Dependent Target %s applies to as component %s",
+                             target.address,
+                             field_set_type.__name__
+                             )
+                component_list.append(field_set_type.create(target))
 
-    docker_components_field_sets = tuple(
-        field_set_type.create(target)
-        for field_set_type in union_membership[DockerComponentFieldSet]
-        for target in transitive_targets.dependencies
-        if field_set_type.is_applicable(target)
-    )
     components = await MultiGet(
         Get(DockerComponent, DockerComponentFieldSet, fs)
-        for fs in docker_components_field_sets
+        for fs in component_list
     )
 
     source_digests = []
@@ -147,7 +150,11 @@ async def package_into_image(
     source_digest = await Get(Digest, MergeDigests(source_digests))
     application_snapshot = await Get(Snapshot,
                                      AddPrefix(source_digest, "application"))
-    logger.info(application_snapshot.files)
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Files to be copied into the docker container")
+        for file in application_snapshot.files:
+            logger.debug("* %s", file)
 
     dockerfile_contents = _create_dockerfile(
         field_set.base_image.value,
@@ -156,6 +163,7 @@ async def package_into_image(
         run_commands,
         field_set.command.value,
     )
+    logger.debug(dockerfile_contents)
     dockerfile = await Get(
         Digest,
         CreateDigest([FileContent("Dockerfile",
@@ -163,12 +171,24 @@ async def package_into_image(
     )
     # create docker build context of all merged files & fetch docker
     # connection enviornment variables
-    docker_context, docker_env = await MultiGet(
+    # and the location of the docker process
+    search_path = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/"]
+    docker_context, docker_env, docker_paths = await MultiGet(
         Get(Digest, MergeDigests([dockerfile, application_snapshot.digest])),
-        docker_environment()
+        Get(Environment, EnvironmentRequest(utils.DOCKER_ENV_VARS)),
+        Get(
+            BinaryPaths,
+            BinaryPathRequest(
+                binary_name="docker",
+                search_path=search_path,
+            ),
+        )
     )
-    process_path = await docker_executable()
-    # Find the docker executable
+    if not docker_paths.first_path:
+        raise ValueError(
+            "Unable to locate Docker binary on paths: %s",
+            search_path)
+    process_path = docker_paths.first_path.path
     # build an list of arguments of the form ["-t",
     # "registry/name:tag"] to pass to the docker executable
     tag_arguments = _build_tag_argument_list(
@@ -179,7 +199,7 @@ async def package_into_image(
         ProcessResult,
         Process(
             env=docker_env,
-            argv=[process_path.first_path.path, "build", *tag_arguments, "."],
+            argv=[process_path, "build", '-q', *tag_arguments, "."],
             input_digest=docker_context,
             description=f"Creating Docker Image from {target_name}",
         ),
