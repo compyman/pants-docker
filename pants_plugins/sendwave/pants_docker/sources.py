@@ -22,8 +22,7 @@ async def get_files(field_set: DockerFilesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
         sources=(
-            await Get(StrippedSourceFiles,
-                      SourceFilesRequest([field_set.sources]))
+            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
         ).snapshot.digest,
     )
 
@@ -39,8 +38,7 @@ async def get_resources(field_set: DockerResourcesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
         sources=(
-            await Get(StrippedSourceFiles,
-                      SourceFilesRequest([field_set.sources]))
+            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
         ).snapshot.digest,
     )
 
