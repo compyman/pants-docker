@@ -187,11 +187,16 @@ async def package_into_image(
         target_name, field_set.tags.value or [], field_set.registry.value
     )
     # create the image
+    process_args = [process_path, "build"]
+    if not logger.isEnabledFor(logging.DEBUG):
+        process_args.append("-q")  # only output the hash of the image
+    process_args.extend(tag_arguments)
+    process_args.append(".")  # use current (sealed) directory as build context
     process_result = await Get(
         ProcessResult,
         Process(
             env=docker_env,
-            argv=[process_path, "build", "-q", *tag_arguments, "."],
+            argv=process_args,
             input_digest=docker_context,
             description=f"Creating Docker Image from {target_name}",
         ),
