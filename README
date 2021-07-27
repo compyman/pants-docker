@@ -23,3 +23,30 @@ See COPYING for the text of the Apache License which this package is released un
 
 
 [0] https://www.pantsbuild.org/
+
+
+
+RELEASE NOTES:
+
+0.03
+
+* Removed the 'registry' field from the docker() build target
+
+* added the docker-package.registry option to the pants-docker subsystem
+apply it to your build in a toml file like so:
+
+[docker-package]
+registry=compyman
+
+or on the command line
+PANTS_DOCKER_PACKAGE_REGISTRY=compyman ./pants package ::
+
+* Added the docker-package.tags option to the pants-docker subsystem
+  applies similarly as the registry above but is a list value. The
+  tags field on the docker build_target() remains present and will
+  still be used
+
+[docker-package]
+PANTS_DOCKER_PACKAGE_TAGS="['tag1', '$interpolated_tag-1', 'latest']"
+
+
