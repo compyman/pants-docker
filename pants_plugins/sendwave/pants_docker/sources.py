@@ -7,7 +7,7 @@ from pants.core.target_types import (FilesSources, RelocatedFilesSources,
 from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.rules import Get, collect_rules, rule
-from pants.engine.target import FieldSet, Sources
+from pants.engine.target import FieldSet
 from pants.engine.unions import UnionRule
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
@@ -25,15 +25,17 @@ class DockerRelocatedFilesFS(FieldSet):
 async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
-        sources=(await Get(
-            StrippedSourceFiles,
-            SourceFilesRequest,
-            SourceFilesRequest(
-                sources_fields=[field_set.sources],
-                for_sources_types=[FilesSources],
-                enable_codegen=True
+        sources=(
+            await Get(
+                StrippedSourceFiles,
+                SourceFilesRequest,
+                SourceFilesRequest(
+                    sources_fields=[field_set.sources],
+                    for_sources_types=[FilesSources],
+                    enable_codegen=True,
+                ),
             )
-        )).snapshot.digest
+        ).snapshot.digest,
     )
 
 
