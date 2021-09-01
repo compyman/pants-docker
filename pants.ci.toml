@@ -1,6 +1,5 @@
 [GLOBAL]
 dynamic_ui = false
-# Ensure colors are used (if your CI provider supports it). 
 colors = true
 
 [python-setup]
