@@ -39,13 +39,15 @@ commands:
     
 jobs:
   build-plugin-wheel:
+    environment:
+      PANTS_CONFIG_FILES: pants.ci.toml
     docker:
       - image: cimg/python:3.9.7
     steps:
       - setup-pants
       - run:
           name: Build package
-          command: ./pants --no-dynamic-ui package pants_plugins/sendwave/pants_docker:pants_docker
+          command: ./pants package pants_plugins/sendwave/pants_docker:pants_docker
       - save-pants-cache
       - store_artifacts:
           path: ./dist/
