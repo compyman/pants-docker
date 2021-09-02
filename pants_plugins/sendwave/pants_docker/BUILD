@@ -15,3 +15,7 @@ python_distribution(
     ),
     setup_py_commands=["sdist", "bdist_wheel"],
 )
+
+python_tests(
+    name="tests",
+)

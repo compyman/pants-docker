@@ -46,6 +46,9 @@ jobs:
     steps:
       - setup-pants
       - run:
+          name: run tests
+          command: './pants test ::'
+      - run:
           name: Build package
           command: ./pants package pants_plugins/sendwave/pants_docker:pants_docker
       - save-pants-cache

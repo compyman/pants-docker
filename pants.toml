@@ -18,3 +18,9 @@ root_patterns = [
 
 [python-setup]
 requirement_constraints="constraints.txt"
+interpreter_constraints = [">=3.9"]
+
+
+[anonymous-telemetry]
+enabled = true
+repo_id = "BB6CBFC17A66FAB02E3FA88C13113888"
