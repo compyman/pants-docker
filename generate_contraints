@@ -6,7 +6,7 @@ set -euo pipefail
 PYTHON_BIN=python3
 VIRTUALENV=build-support/.venv
 PIP="${VIRTUALENV}/bin/pip"
-REQUIREMENTS_FILE=example_requirements.txt
+REQUIREMENTS_FILE=test_docker_requirements.txt
 CONSTRAINTS_FILE=constraints.txt
 
 "${PYTHON_BIN}" -m venv "${VIRTUALENV}"
