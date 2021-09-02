@@ -32,9 +32,9 @@ commands:
       - save_cache:
           key: v0-pants_cache-{{ arch }}--{{ .Branch }}-{{ .Revision }}
           paths:
-            - /home/circleci/project/.cache/pants/setup
-            - /home/circleci/project/.cache/pants/named_cache
-            - /home/circleci/project/.cache/pants/lmdb_caches
+            - ~/.cache/pants/setup
+            - ~/.cache/pants/named_cache
+            - ~/.cache/pants/lmdb_caches
 
     
 jobs:
