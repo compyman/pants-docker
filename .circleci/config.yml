@@ -14,10 +14,10 @@ commands:
     steps:
       - checkout    
       - restore_cache:
-        keys:
-          - v0-pants_cache-{{ arch }}--{{ .Branch }}-{{ .Revision }}
-          - v0-pants_cache-{{ arch }}--{{ .Branch }}
-          - v0-pants_cache-{{ arch }}
+          keys:
+            - v0-pants_cache-{{ arch }}--{{ .Branch }}-{{ .Revision }}
+            - v0-pants_cache-{{ arch }}--{{ .Branch }}
+            - v0-pants_cache-{{ arch }}
       - run:
           name: setup distutils
           command: sudo apt-get update && sudo apt-get install python3-distutils
