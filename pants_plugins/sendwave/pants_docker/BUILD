@@ -1,19 +1,24 @@
-python_library(
+python_sources(
     name="pants_docker_library",
-    dependencies=["pants_plugins:pants",],
+    dependencies=[
+        "pants_plugins:pants",
+    ],
 )
 
 
 python_distribution(
     name="pants_docker",
-    dependencies=[":pants_docker_library",],
+    dependencies=[
+        ":pants_docker_library",
+    ],
     provides=setup_py(
         name="sendwave-pants-docker",
         version="0.05",
         description="Pants Plugin to automatically generate docker images from pants targets",
         author="compyman@compyman.net",
     ),
-    setup_py_commands=["sdist", "bdist_wheel"],
+    sdist=True,
+    wheel=True,
 )
 
 python_tests(
