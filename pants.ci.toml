@@ -2,12 +2,12 @@
 dynamic_ui = false
 colors = true
 
-[python]
+[python-setup]
 # Limit the maximum number of concurrent jobs used to resolve third
 # party dependencies. The max level of parallelism will be
-# `process_execution_local_parallelism x resolver_num_jobs`, but
+# `process_execution_local_parallelism x resolver_jobs`, but 
 # often you will have one resolve process at a time.
-resolver_num_jobs = 2
+resolver_jobs = 2
 
 [pytest]
 args = ["-vv"]
