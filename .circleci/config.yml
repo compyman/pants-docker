@@ -12,7 +12,7 @@ commands:
   setup-pants:
     description: "Setup pants build tool"
     steps:
-      - checkout    
+      - checkout
       - restore_cache:
           keys:
             - v0-pants_cache-{{ arch }}--{{ .Branch }}-{{ .Revision }}
@@ -36,7 +36,6 @@ commands:
             - ~/.cache/pants/named_cache
             - ~/.cache/pants/lmdb_caches
 
-    
 jobs:
   build-plugin-wheel:
     environment:
@@ -54,3 +53,5 @@ jobs:
       - save-pants-cache
       - store_artifacts:
           path: ./dist/
+
+  
