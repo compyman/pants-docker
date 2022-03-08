@@ -1,8 +1,7 @@
 import pytest
-from pants.backend.python.goals import pytest_runner
-from pants.backend.python.target_types import PythonLibrary, PythonTests
+from pants.backend.python.target_types import PythonSourceTarget, PythonSourcesGeneratorTarget, PythonTestTarget
 from pants.backend.python.util_rules import pex_from_targets
-from pants.core.target_types import Files, RelocatedFiles, Resources
+from pants.core.target_types import FileTarget, ResourceTarget
 from pants.engine.addresses import Address
 from pants.engine.fs import Snapshot
 from pants.testutil.rule_runner import QueryRule, RuleRunner
@@ -16,9 +15,8 @@ from sendwave.pants_docker.sources import (DockerFilesFS,
 @pytest.fixture
 def rule_runner() -> RuleRunner:
     rule_runner = RuleRunner(
-        target_types=[PythonLibrary, PythonTests, Files, Resources, RelocatedFiles],
+        target_types=[PythonSourcesGeneratorTarget, PythonSourceTarget, FileTarget, ResourceTarget],
         rules=[
-            *pytest_runner.rules(),
             *pex_from_targets.rules(),
             *rules(),
             QueryRule(DockerComponent, [DockerPythonSourcesFS]),
@@ -35,9 +33,9 @@ def sources_runner(rule_runner: RuleRunner) -> RuleRunner:
     """construct rule runner environment with targets containing various
     'Sources' types."""
     build = (
-        "python_library()\n"
-        "files(name='file', sources=['test.txt'])\n"
-        "resources(name='resources', sources=['resources.txt'])"
+        "python_source(source='test.py')\n"
+        "file(name='file', source='test.txt')\n"
+        "resource(name='resources', source='resources.txt')"
     )
     rule_runner.write_files(
         {

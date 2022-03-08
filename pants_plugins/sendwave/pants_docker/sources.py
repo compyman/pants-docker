@@ -1,9 +1,9 @@
 import logging
 from dataclasses import dataclass
 
-from pants.backend.python.target_types import PythonSources
-from pants.core.target_types import (FilesSources, RelocatedFilesSources,
-                                     ResourcesSources)
+from pants.backend.python.target_types import PythonSourceField
+from pants.core.target_types import (FileSourceField, RelocatedFilesSourcesField,
+                                     ResourceSourceField)
 from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.rules import Get, collect_rules, rule
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class DockerRelocatedFilesFS(FieldSet):
-    required_fields = (RelocatedFilesSources,)
-    sources: RelocatedFilesSources
+    required_fields = (RelocatedFilesSourcesField,)
+    sources: RelocatedFilesSourcesField
 
 
 @rule
@@ -31,7 +31,7 @@ async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerCompon
                 SourceFilesRequest,
                 SourceFilesRequest(
                     sources_fields=[field_set.sources],
-                    for_sources_types=[FilesSources],
+                    for_sources_types=[FileSourceField],
                     enable_codegen=True,
                 ),
             )
@@ -41,8 +41,8 @@ async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerCompon
 
 @dataclass(frozen=True)
 class DockerFilesFS(FieldSet):
-    required_fields = (FilesSources,)
-    sources: FilesSources
+    required_fields = (FileSourceField,)
+    sources: FileSourceField
 
 
 @rule
@@ -57,8 +57,8 @@ async def get_files(field_set: DockerFilesFS) -> DockerComponent:
 
 @dataclass(frozen=True)
 class DockerResourcesFS(FieldSet):
-    required_fields = (ResourcesSources,)
-    sources: ResourcesSources
+    required_fields = (ResourceSourceField,)
+    sources: ResourceSourceField
 
 
 @rule
@@ -73,8 +73,8 @@ async def get_resources(field_set: DockerResourcesFS) -> DockerComponent:
 
 @dataclass(frozen=True)
 class DockerPythonSourcesFS(FieldSet):
-    required_fields = (PythonSources,)
-    sources: PythonSources
+    required_fields = (PythonSourceField,)
+    sources: PythonSourceField
 
 
 @rule

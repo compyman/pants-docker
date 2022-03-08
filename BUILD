@@ -1,1 +1,1 @@
-python_requirements(requirements_relpath="test_docker_requirements.txt")
+python_requirements(source="test_docker_requirements.txt")
