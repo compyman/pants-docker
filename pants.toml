@@ -16,6 +16,8 @@ root_patterns = [
               "/",
               "/test_docker"
               ]
+[sendwave-docker]
+report_progress = true
 
 [python]
 requirement_constraints="constraints.txt"

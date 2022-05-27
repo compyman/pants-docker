@@ -152,8 +152,7 @@ async def package_into_image(
         run_commands,
         field_set.command.value,
     )
-
-    logger.debug(dockerfile_contents)
+    logger.info("Constructed Dockerfile:\n{}".format(dockerfile_contents))
     dockerfile = await Get(
         Digest,
         CreateDigest([FileContent("Dockerfile", dockerfile_contents.encode("utf-8"))]),
