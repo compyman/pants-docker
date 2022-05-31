@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
-from pants.backend.python.target_types import (PythonRequirementsField,
-                                               PythonRequirementsFileSourcesField)
+from pants.backend.python.subsystems.repos import PythonRepos
+from pants.backend.python.subsystems.setup import PythonSetup
+from pants.backend.python.target_types import (
+    PythonRequirementsField, PythonRequirementsFileSourcesField)
 from pants.engine.fs import Digest, PathGlobs
 from pants.engine.rules import Get, collect_rules, rule
 from pants.engine.target import FieldSet
 from pants.engine.unions import UnionRule
-from pants.backend.python.subsystems.repos import PythonRepos
-from pants.backend.python.subsystems.setup import PythonSetup
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
 
