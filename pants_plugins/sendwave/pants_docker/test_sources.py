@@ -1,5 +1,7 @@
 import pytest
-from pants.backend.python.target_types import PythonSourceTarget, PythonSourcesGeneratorTarget, PythonTestTarget
+from pants.backend.python.target_types import (PythonSourcesGeneratorTarget,
+                                               PythonSourceTarget,
+                                               PythonTestTarget)
 from pants.backend.python.util_rules import pex_from_targets
 from pants.core.target_types import FileTarget, ResourceTarget
 from pants.engine.addresses import Address
@@ -15,7 +17,12 @@ from sendwave.pants_docker.sources import (DockerFilesFS,
 @pytest.fixture
 def rule_runner() -> RuleRunner:
     rule_runner = RuleRunner(
-        target_types=[PythonSourcesGeneratorTarget, PythonSourceTarget, FileTarget, ResourceTarget],
+        target_types=[
+            PythonSourcesGeneratorTarget,
+            PythonSourceTarget,
+            FileTarget,
+            ResourceTarget,
+        ],
         rules=[
             *pex_from_targets.rules(),
             *rules(),

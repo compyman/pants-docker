@@ -34,12 +34,13 @@ from pants.engine.environment import Environment, EnvironmentRequest
 from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
                              MergeDigests, Snapshot)
 from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
-                                  ProcessResult)
+                                  ProcessCacheScope, ProcessResult)
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
 from pants.engine.target import TransitiveTargets, TransitiveTargetsRequest
 from pants.engine.unions import UnionMembership
 from sendwave.pants_docker.docker_component import (DockerComponent,
                                                     DockerComponentFieldSet)
+from sendwave.pants_docker.subsystem import Docker
 from sendwave.pants_docker.target import DockerPackageFieldSet
 
 logger = logging.getLogger(__name__)
@@ -107,8 +108,7 @@ def _create_dockerfile(
 
 @rule()
 async def package_into_image(
-    field_set: DockerPackageFieldSet,
-    union_membership: UnionMembership,
+    field_set: DockerPackageFieldSet, union_membership: UnionMembership, docker: Docker
 ) -> BuiltPackage:
     """Build a docker image from a 'docker' build target.
 
@@ -144,13 +144,7 @@ async def package_into_image(
             source_digests.append(component.sources)
         run_commands.extend(component.commands)
     source_digest = await Get(Digest, MergeDigests(source_digests))
-    application_snapshot = await Get(Snapshot, AddPrefix(source_digest, "application"))
-
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("Files to be copied into the docker container")
-        for file in application_snapshot.files:
-            logger.debug("* %s", file)
-
+    application_digest = await Get(Digest, AddPrefix(source_digest, "application"))
     dockerfile_contents = _create_dockerfile(
         field_set.base_image.value,
         field_set.workdir.value,
@@ -158,7 +152,7 @@ async def package_into_image(
         run_commands,
         field_set.command.value,
     )
-    logger.debug(dockerfile_contents)
+    logger.info("Constructed Dockerfile:\n{}".format(dockerfile_contents))
     dockerfile = await Get(
         Digest,
         CreateDigest([FileContent("Dockerfile", dockerfile_contents.encode("utf-8"))]),
@@ -168,7 +162,7 @@ async def package_into_image(
     # and the location of the docker process
     search_path = ["/bin", "/usr/bin", "/usr/local/bin", "$HOME/"]
     docker_context, docker_env, docker_paths = await MultiGet(
-        Get(Digest, MergeDigests([dockerfile, application_snapshot.digest])),
+        Get(Digest, MergeDigests([dockerfile, application_digest])),
         Get(Environment, EnvironmentRequest(utils.DOCKER_ENV_VARS)),
         Get(
             BinaryPaths,
@@ -188,10 +182,11 @@ async def package_into_image(
     )
     # create the image
     process_args = [process_path, "build"]
-    if not logger.isEnabledFor(logging.DEBUG):
-        process_args.append("-q")  # only output the hash of the image
     process_args.extend(tag_arguments)
     process_args.append(".")  # use current (sealed) directory as build context
+    if docker.options.report_progress:
+        process_args.append("--progress")
+        process_args.append("plain")
     process_result = await Get(
         ProcessResult,
         Process(
@@ -199,9 +194,12 @@ async def package_into_image(
             argv=process_args,
             input_digest=docker_context,
             description=f"Creating Docker Image from {target_name}",
+            cache_scope=ProcessCacheScope.PER_SESSION,
         ),
     )
-    logger.info(process_result.stdout.decode())
+    if docker.options.report_progress:
+        logger.info(process_result.stdout.decode())
+        logger.info(process_result.stderr.decode())
     o = await Get(Snapshot, Digest, process_result.output_digest)
     return BuiltPackage(
         digest=process_result.output_digest,
