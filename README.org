@@ -1,0 +1,61 @@
+#+TITLE:       Sendwave Pants Docker Plugin
+#+AUTHOR:      Nathan Rosenbloom, Jean Cochrane
+#+EMAIL:       engineering@sendwave.com
+#+DESCRIPTION: Docker Plugin Documentation
+
+* Version 1.0.1
+
+This package contains an implementation of a plugin for the [[https://www.pantsbuild.org/][pants
+build system]] to build docker images from pants build targets.
+
+* Requirements
+
+This plugin supports pantsbuild 2.9 and requires python 3.7 or python
+3.8 to be installed, as well as transitively any other pants
+dependencies.
+
+* Installation
+
+To install from pypi in an existing pantsbuild project add to your
+pants.toml file:
+
+#+NAME: pants.toml
+#+BEGIN_SRC: toml
+[GLOBAL]
+plugins = ["sendwave-pants-docker~=1.0"]
+backend_packages = ["sendwave.pants_docker"]
+#+END_SRC
+
+
+* Overview
+This plugin adds the 'docker' target that can be used with `pants
+package` to build a docker image. Ensure that you have docker
+installed & the daemon running when attempting to build an image.
+
+The plugin will generate a Dockerfile & then then build that
+dockerfile in a build context containing all dependent source files
+(after stripping source roots). All source files will be copied into
+the =/application/= directory in the generated image.
+
+Python requirements will be installed into a virtualenv in the docker
+image, which is activated by updating the PATH environment variable in
+the generated imaage.
+
+See =$ pants help docker= for information on possible values for the
+docker target.
+
+To add support for more targets in subsequent plugins (i.e. to
+plug-into this plugin) add a rule mapping your Target/FieldSet to a
+DockerComponent dataclass. Then add a
+=UnionRule(DockerComponentFieldSet, {YourRuleInput}=, the =sources= in
+the DockerComponent will be copied into the image and the =commands=
+will be executed in the generated DockerFile.
+* ChangeLog
+* 1.0.1
++ Remove pants level docker process caching - we will not cache the image generation results from one pants run to another.
++ Log more information from the docker process
+* 1.0
+Initial Public Release
+* License
+See COPYING for the text of the Apache License which governs this
+package.
