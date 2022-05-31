@@ -13,9 +13,11 @@ python_distribution(
     ],
     provides=setup_py(
         name="sendwave-pants-docker",
-        version="1.0",
+        version="1.0.1",
         description="Pants Plugin to automatically generate docker images from pants targets",
-        author="compyman@compyman.net",
+        url="https://github.com/compyman/pants-docker",
+        author="Nathan Rosenbloom, Jean Cochrane",
+        author_email="engineering@sendwave.com",
     ),
     sdist=True,
     wheel=True,
