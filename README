@@ -1,25 +1,56 @@
-Pants Docker
-Version 1.0
+#+TITLE:       Sendwave Pants Docker Plugin
+#+AUTHOR:      Nathan Rosenbloom, Jean Cochrane
+#+EMAIL:       engineering@sendwave.com
+#+DESCRIPTION: Docker Plugin Documentation
 
-This package contains an implementation of a plugin for the pants build system [0] to build docker images from out of pants build targets.
+* Version 1.0.1
 
-Requirements
+This package contains an implementation of a plugin for the [[https://www.pantsbuild.org/][pants
+build system]] to build docker images from pants build targets.
 
-This plugin supports the current stable version of pants (2.9)  and requires python 3.7 or python 3.8 to be installed, as well as transitively any other pants dependencies.
+* Requirements
 
-Installation
+This plugin supports pantsbuild 2.9 and requires python 3.7 or python
+3.8 to be installed, as well as transitively any other pants
+dependencies.
 
-See INSTALL for instructions for installation from source
+* Installation
 
-To install from pypi in an existing pants project add to your pants.toml file:
+To install from pypi in an existing pantsbuild project add to your
+pants.toml file:
 
+#+NAME: pants.toml
+#+BEGIN_SRC: toml
 [GLOBAL]
-plugins = [
-    "pants-docker"=="1.0"
-]
+plugins = ["sendwave-pants-docker~=1.0"]
+backend_packages = ["sendwave.pants_docker"]
+#+END_SRC
 
 
-See COPYING for the text of the Apache License which this package is released under 
+* Overview
+This plugin adds the 'docker' target that can be used with `pants
+package` to build a docker image. Ensure that you have docker
+installed & the daemon running when attempting to build an image.
 
+The plugin will generate a Dockerfile & then then build that
+dockerfile in a build context containing all dependent source files
+(after stripping source roots). All source files will be copied into
+the =/application/= directory in the generated image.
 
-[0] https://www.pantsbuild.org/
+Python requirements will be installed into a virtualenv in the docker
+image, which is activated by updating the PATH environment variable in
+the generated imaage.
+
+See =$ pants help docker= for information on possible values for the
+docker target.
+
+To add support for more targets in subsequent plugins (i.e. to
+plug-into this plugin) add a rule mapping your Target/FieldSet to a
+DockerComponent dataclass. Then add a
+=UnionRule(DockerComponentFieldSet, {YourRuleInput}=, the =sources= in
+the DockerComponent will be copied into the image and the =commands=
+will be executed in the generated DockerFile.
+
+* License
+See COPYING for the text of the Apache License which governs this
+package.
