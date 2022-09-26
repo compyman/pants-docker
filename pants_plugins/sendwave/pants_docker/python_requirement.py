@@ -1,39 +1,53 @@
+import logging
 from dataclasses import dataclass
+from typing import Any, Optional
 
 from pants.backend.python.subsystems.repos import PythonRepos
 from pants.backend.python.subsystems.setup import PythonSetup
-from pants.backend.python.target_types import (
-    PythonRequirementsField, PythonRequirementsFileSourcesField)
-from pants.engine.fs import Digest, PathGlobs
+from pants.backend.python.target_types import PythonRequirementsField
+from pants.core.util_rules.system_binaries import BinaryPathRequest, BinaryPaths
+from pants.engine.fs import Digest, GlobMatchErrorBehavior, PathGlobs
 from pants.engine.rules import Get, collect_rules, rule
 from pants.engine.target import FieldSet
 from pants.engine.unions import UnionRule
-from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentFieldSet)
+from pants.option.global_options import BootstrapOptions
+from sendwave.pants_docker.docker_component import (
+    DockerComponent,
+    DockerComponentFieldSet,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class PythonRequirementsFileFS(FieldSet):
-    required_fields = (PythonRequirementsFileSourcesField,)
-    requirement_file: PythonRequirementsFileSourcesField
-
-
-_REQUIREMENT_FILE_ORDER = -10
+class VirtualEnvRequest:
+    enable_resolves: bool
+    requirement_constraints: Optional[str]
 
 
 @rule
-async def get_requirement_file_component(
-    _: PythonRequirementsFileFS, python_setup: PythonSetup
+async def create_virtual_env(
+    resolve_request: VirtualEnvRequest,
 ) -> DockerComponent:
-    sources = None
+    print(resolve_request)
+    assert (
+        not resolve_request.enable_resolves
+    ), "Pants lockfiles not yet supported"
+
     copy_command = []
-    if python_setup.requirement_constraints:
-        sources = await Get(Digest, PathGlobs([python_setup.requirement_constraints]))
-        copy_command.append(
-            "COPY application/{} .\n".format(python_setup.requirement_constraints)
+    sources = None
+    if constraint_file := resolve_request.requirement_constraints:
+        sources = await Get(
+            Digest,
+            PathGlobs(
+                [constraint_file],
+                glob_match_error_behavior=GlobMatchErrorBehavior.error,
+                description_of_origin="the option `requirement_constraints`",
+            ),
         )
+        print(sources)
+        copy_command.append("COPY application/{} .\n".format(constraint_file))
     return DockerComponent(
-        order=_REQUIREMENT_FILE_ORDER,
         commands=tuple(
             [
                 *copy_command,
@@ -57,8 +71,11 @@ class PythonRequirementsFS(FieldSet):
 async def get_requirements(
     field_set: PythonRequirementsFS, setup: PythonSetup, repos: PythonRepos
 ) -> DockerComponent:
+    assert not setup.enable_resolves, "Pants lockfiles not yet supported"
     if repos.repos:
-        links_args = " ".join("--find-links {}".format(repo for repo in repos.repos))
+        links_args = " ".join(
+            "--find-links {}".format(repo for repo in repos.repos)
+        )
     else:
         links_args = ""
     num_indices = len(repos.indexes)
@@ -81,8 +98,6 @@ async def get_requirements(
         for lib in field_set.requirements.value
     )
     return DockerComponent(
-        # This has to go _after we've created & activated the venv.
-        order=1 + _REQUIREMENT_FILE_ORDER,
         commands=commands,
         sources=None,
     )
@@ -91,6 +106,5 @@ async def get_requirements(
 def rules():
     return [
         UnionRule(DockerComponentFieldSet, PythonRequirementsFS),
-        UnionRule(DockerComponentFieldSet, PythonRequirementsFileFS),
         *collect_rules(),
     ]
