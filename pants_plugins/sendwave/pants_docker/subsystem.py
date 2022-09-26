@@ -1,5 +1,6 @@
 """Configuration for the Sendwave pants-docker plugin."""
 from pants.engine.rules import SubsystemRule
+from pants.option.option_types import BoolOption
 from pants.option.subsystem import Subsystem
 
 
@@ -17,16 +18,11 @@ class Docker(Subsystem):
     options_scope = "sendwave-docker"
     help = "Options for Docker Build Process."
 
-    @classmethod
-    def register_options(cls, register):
-        """Register Docker Options with Pants Engine."""
-        super().register_options(register)
-        register(
-            "--report-progress",
-            type=bool,
-            default=False,
-            help="If true: the plugin will report output of `docker build`",
-        )
+    report_progress = BoolOption(
+        "--report-progress",
+        default=False,
+        help="If true: the plugin will report output of `docker build`",
+    )
 
 
 def rules():
