@@ -6,7 +6,15 @@ workflows:
     # For more details on extending your workflow,
     # see the configuration docs: https://circleci.com/docs/2.0/configuration-reference/#workflows
     jobs:
+      - pants-checks
       - build-plugin-wheel
+
+executors:
+  plugin-executor:
+    docker:
+    - image: cimg/python:3.9.13
+      environment:
+          PANTS_CONFIG_FILES: pants.ci.toml
 
 commands:
   setup-pants:
@@ -37,11 +45,17 @@ commands:
             - ~/.cache/pants/lmdb_caches
 
 jobs:
+  pants-checks:
+    executor: plugin-executor
+    steps:
+      - setup-pants
+      - run:
+          command: './pants update-build-files --check ::'
+      - run:
+          command: './pants lint ::'
+      - save-pants-cache
   build-plugin-wheel:
-    environment:
-      PANTS_CONFIG_FILES: pants.ci.toml
-    docker:
-      - image: cimg/python:3.9.7
+    executor: plugin-executor
     steps:
       - setup-pants
       - run:

@@ -1,17 +1,22 @@
 import pytest
-from pants.backend.python.target_types import (PythonSourcesGeneratorTarget,
-                                               PythonSourceTarget,
-                                               PythonTestTarget)
+from pants.backend.python.target_types import (
+    PythonSourcesGeneratorTarget,
+    PythonSourceTarget,
+    PythonTestTarget,
+)
 from pants.backend.python.util_rules import pex_from_targets
 from pants.core.target_types import FileTarget, ResourceTarget
 from pants.engine.addresses import Address
 from pants.engine.fs import Snapshot
 from pants.testutil.rule_runner import QueryRule, RuleRunner
 from sendwave.pants_docker.docker_component import DockerComponent
-from sendwave.pants_docker.sources import (DockerFilesFS,
-                                           DockerPythonSourcesFS,
-                                           DockerRelocatedFilesFS,
-                                           DockerResourcesFS, rules)
+from sendwave.pants_docker.sources import (
+    DockerFilesFS,
+    DockerPythonSourcesFS,
+    DockerRelocatedFilesFS,
+    DockerResourcesFS,
+    rules,
+)
 
 
 @pytest.fixture
@@ -57,7 +62,9 @@ def sources_runner(rule_runner: RuleRunner) -> RuleRunner:
 
 def test_get_python_sources(sources_runner: RuleRunner) -> None:
     t = sources_runner.get_target(address=Address("app", target_name=""))
-    x = sources_runner.request(DockerComponent, [DockerPythonSourcesFS.create(t)])
+    x = sources_runner.request(
+        DockerComponent, [DockerPythonSourcesFS.create(t)]
+    )
     snap = sources_runner.request(Snapshot, [x.sources])
     assert snap.files == ("app/test.py",)
 
@@ -70,7 +77,9 @@ def test_get_files(sources_runner: RuleRunner) -> None:
 
 
 def test_get_resources(sources_runner: RuleRunner) -> None:
-    t = sources_runner.get_target(address=Address("app", target_name="resources"))
+    t = sources_runner.get_target(
+        address=Address("app", target_name="resources")
+    )
     x = sources_runner.request(DockerComponent, [DockerResourcesFS.create(t)])
     snap = sources_runner.request(Snapshot, [x.sources])
     assert snap.files == ("app/resources.txt",)

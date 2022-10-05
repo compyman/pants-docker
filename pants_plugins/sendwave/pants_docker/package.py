@@ -29,17 +29,28 @@ from io import StringIO
 from typing import Iterable, List, Optional
 
 import sendwave.pants_docker.utils as utils
+from pants.backend.python.subsystems.setup import PythonSetup
+from pants.backend.python.target_types import PythonRequirementTarget
 from pants.core.goals.package import BuiltPackage, BuiltPackageArtifact
+from pants.core.util_rules.system_binaries import BinaryPathRequest, BinaryPaths
 from pants.engine.environment import Environment, EnvironmentRequest
-from pants.engine.fs import (AddPrefix, CreateDigest, Digest, FileContent,
-                             MergeDigests, Snapshot)
-from pants.engine.process import (BinaryPathRequest, BinaryPaths, Process,
-                                  ProcessCacheScope, ProcessResult)
+from pants.engine.fs import (
+    AddPrefix,
+    CreateDigest,
+    Digest,
+    FileContent,
+    MergeDigests,
+    Snapshot,
+)
+from pants.engine.process import Process, ProcessCacheScope, ProcessResult
 from pants.engine.rules import Get, MultiGet, collect_rules, rule
 from pants.engine.target import TransitiveTargets, TransitiveTargetsRequest
 from pants.engine.unions import UnionMembership
-from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentFieldSet)
+from sendwave.pants_docker.docker_component import (
+    DockerComponent,
+    DockerComponentFieldSet,
+)
+from sendwave.pants_docker.python_requirement import VirtualEnvRequest
 from sendwave.pants_docker.subsystem import Docker
 from sendwave.pants_docker.target import DockerPackageFieldSet
 
@@ -101,14 +112,19 @@ def _create_dockerfile(
     dockerfile.writelines(commands)
     dockerfile.write("COPY application .\n")
     if init_command:
-        cmd = "CMD [{}]\n".format(",".join('"{}"'.format(c) for c in init_command))
+        cmd = "CMD [{}]\n".format(
+            ",".join('"{}"'.format(c) for c in init_command)
+        )
         dockerfile.write(cmd)
     return dockerfile.getvalue()
 
 
 @rule()
 async def package_into_image(
-    field_set: DockerPackageFieldSet, union_membership: UnionMembership, docker: Docker
+    field_set: DockerPackageFieldSet,
+    union_membership: UnionMembership,
+    setup: PythonSetup,
+    docker: Docker,
 ) -> BuiltPackage:
     """Build a docker image from a 'docker' build target.
 
@@ -120,21 +136,45 @@ async def package_into_image(
     transitive_targets = await Get(
         TransitiveTargets, TransitiveTargetsRequest([field_set.address])
     )
+
     component_list = []
+    created_virtual_env = False
     logger.debug("Building Target %s", target_name)
     for field_set_type in union_membership[DockerComponentFieldSet]:
         for target in transitive_targets.dependencies:
+            if (
+                isinstance(target, PythonRequirementTarget)
+                and not created_virtual_env
+            ):
+                # if there are any third party python dependencies
+                # create & activate a virtual env in the image, this
+                # will copy in a constraints file (which will be used
+                # when installing any 3rd-party dependencies)
+                component_list.append(
+                    Get(
+                        DockerComponent,
+                        VirtualEnvRequest(
+                            setup.enable_resolves, setup.requirement_constraints
+                        ),
+                    )
+                )
+                # we only want one virtual env per image
+                created_virtual_env = True
             if field_set_type.is_applicable(target):
                 logger.debug(
                     "Dependent Target %s applies to as component %s",
                     target.address,
                     field_set_type.__name__,
                 )
-                component_list.append(field_set_type.create(target))
+                component_list.append(
+                    Get(
+                        DockerComponent,
+                        DockerComponentFieldSet,
+                        field_set_type.create(target),
+                    )
+                )
 
-    components = await MultiGet(
-        Get(DockerComponent, DockerComponentFieldSet, fs) for fs in component_list
-    )
+    components = await MultiGet(*component_list)
 
     source_digests = []
     run_commands = []
@@ -144,7 +184,9 @@ async def package_into_image(
             source_digests.append(component.sources)
         run_commands.extend(component.commands)
     source_digest = await Get(Digest, MergeDigests(source_digests))
-    application_digest = await Get(Digest, AddPrefix(source_digest, "application"))
+    application_digest = await Get(
+        Digest, AddPrefix(source_digest, "application")
+    )
     dockerfile_contents = _create_dockerfile(
         field_set.base_image.value,
         field_set.workdir.value,
@@ -155,7 +197,9 @@ async def package_into_image(
     logger.info("Constructed Dockerfile:\n{}".format(dockerfile_contents))
     dockerfile = await Get(
         Digest,
-        CreateDigest([FileContent("Dockerfile", dockerfile_contents.encode("utf-8"))]),
+        CreateDigest(
+            [FileContent("Dockerfile", dockerfile_contents.encode("utf-8"))]
+        ),
     )
     # create docker build context of all merged files & fetch docker
     # connection enviornment variables
@@ -173,7 +217,9 @@ async def package_into_image(
         ),
     )
     if not docker_paths.first_path:
-        raise ValueError("Unable to locate Docker binary on paths: %s", search_path)
+        raise ValueError(
+            "Unable to locate Docker binary on paths: %s", search_path
+        )
     process_path = docker_paths.first_path.path
     # build an list of arguments of the form ["-t",
     # "registry/name:tag"] to pass to the docker executable
@@ -200,10 +246,10 @@ async def package_into_image(
     if docker.options.report_progress:
         logger.info(process_result.stdout.decode())
         logger.info(process_result.stderr.decode())
-    o = await Get(Snapshot, Digest, process_result.output_digest)
+    output_digest = await Get(Snapshot, Digest, process_result.output_digest)
     return BuiltPackage(
         digest=process_result.output_digest,
-        artifacts=([BuiltPackageArtifact(f, ()) for f in o.files]),
+        artifacts=([BuiltPackageArtifact(f, ()) for f in output_digest.files]),
     )
 
 

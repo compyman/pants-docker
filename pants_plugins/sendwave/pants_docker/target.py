@@ -1,14 +1,26 @@
 from dataclasses import dataclass
 
 import pants.core.goals.package
-from pants.core.goals.package import (BuiltPackage, BuiltPackageArtifact,
-                                      OutputPathField)
-from pants.engine.target import (COMMON_TARGET_FIELDS, Dependencies,
-                                 DependenciesRequest, DescriptionField,
-                                 HydratedSources, HydrateSourcesRequest,
-                                 StringField, StringSequenceField, Tags,
-                                 Target, Targets, TransitiveTargets,
-                                 TransitiveTargetsRequest)
+from pants.core.goals.package import (
+    BuiltPackage,
+    BuiltPackageArtifact,
+    OutputPathField,
+)
+from pants.engine.target import (
+    COMMON_TARGET_FIELDS,
+    Dependencies,
+    DependenciesRequest,
+    DescriptionField,
+    HydratedSources,
+    HydrateSourcesRequest,
+    StringField,
+    StringSequenceField,
+    Tags,
+    Target,
+    Targets,
+    TransitiveTargets,
+    TransitiveTargetsRequest,
+)
 from pants.engine.unions import UnionRule
 
 
@@ -91,4 +103,8 @@ class Docker(Target):
 
 
 def rules():
-    return [UnionRule(pants.core.goals.package.PackageFieldSet, DockerPackageFieldSet)]
+    return [
+        UnionRule(
+            pants.core.goals.package.PackageFieldSet, DockerPackageFieldSet
+        )
+    ]

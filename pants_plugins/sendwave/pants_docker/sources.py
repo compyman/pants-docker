@@ -2,16 +2,20 @@ import logging
 from dataclasses import dataclass
 
 from pants.backend.python.target_types import PythonSourceField
-from pants.core.target_types import (FileSourceField,
-                                     RelocatedFilesSourcesField,
-                                     ResourceSourceField)
+from pants.core.target_types import (
+    FileSourceField,
+    RelocatedFilesSourcesField,
+    ResourceSourceField,
+)
 from pants.core.util_rules.source_files import SourceFiles, SourceFilesRequest
 from pants.core.util_rules.stripped_source_files import StrippedSourceFiles
 from pants.engine.rules import Get, collect_rules, rule
 from pants.engine.target import FieldSet
 from pants.engine.unions import UnionRule
-from sendwave.pants_docker.docker_component import (DockerComponent,
-                                                    DockerComponentFieldSet)
+from sendwave.pants_docker.docker_component import (
+    DockerComponent,
+    DockerComponentFieldSet,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +27,9 @@ class DockerRelocatedFilesFS(FieldSet):
 
 
 @rule
-async def get_relocated_files(field_set: DockerRelocatedFilesFS) -> DockerComponent:
+async def get_relocated_files(
+    field_set: DockerRelocatedFilesFS,
+) -> DockerComponent:
     return DockerComponent(
         commands=(),
         sources=(
@@ -51,7 +57,9 @@ async def get_files(field_set: DockerFilesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
         sources=(
-            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+            await Get(
+                StrippedSourceFiles, SourceFilesRequest([field_set.sources])
+            )
         ).snapshot.digest,
     )
 
@@ -67,7 +75,9 @@ async def get_resources(field_set: DockerResourcesFS) -> DockerComponent:
     return DockerComponent(
         commands=(),
         sources=(
-            await Get(StrippedSourceFiles, SourceFilesRequest([field_set.sources]))
+            await Get(
+                StrippedSourceFiles, SourceFilesRequest([field_set.sources])
+            )
         ).snapshot.digest,
     )
 
