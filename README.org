@@ -3,14 +3,14 @@
 #+EMAIL:       engineering@sendwave.com
 #+DESCRIPTION: Docker Plugin Documentation
 
-* Version 1.1.0
+* Version 1.1.1
 
 This package contains an implementation of a plugin for the [[https://www.pantsbuild.org/][pants
 build system]] to build docker images from pants build targets.
 
 * Requirements
 
-This plugin supports pantsbuild 2.13 and requires python 3.9 to be
+This plugin supports pantsbuild 2.13 and requires python >=3.8 to be
 installed, as well as transitively any other pants dependencies.
 
 * Installation
@@ -50,6 +50,8 @@ DockerComponent dataclass. Then add a
 the DockerComponent will be copied into the image and the =commands=
 will be executed in the generated DockerFile.
 * ChangeLog
+* 1.1.1
++ Fix too strict python interpreter version to allow any python version 3.8 or greater
 * 1.1.0
 + Update plugin for compatibility with pants version 2.13
 + No user facing changes, but changes how lockfiles set via `requirement_constraints` are handled
